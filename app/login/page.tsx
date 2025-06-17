@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 export default function LoginPage() {
-  const { signIn } = useAuthActions();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const { signIn } = useAuthActions();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,59 +21,89 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await signIn("password", { email, password });
-      router.push("/dashboard");
-    } catch (error) {
-      setError("Invalid email or password");
+      const result = await signIn("password", {
+        email,
+        password,
+        flow: "signIn"
+      });
+
+      // If sign in was successful, redirect to dashboard
+      if (result) {
+        router.push("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      // Handle misleading email verification errors during sign-in
+      if (error?.message?.includes("Could not send verification email")) {
+        setError("Invalid email or password. Please check your credentials and try again.");
+        return;
+      }
+
+      // Check if this is an email verification error
+      if (error?.message?.includes("verification") || error?.message?.includes("verify")) {
+        // Redirect to verification page
+        router.push(`/verify-email-sent?email=${encodeURIComponent(email)}`);
+        return;
+      }
+
+      if (error?.message?.includes("Invalid credentials") ||
+        error?.message?.includes("wrong password") ||
+        error?.message?.includes("incorrect password")) {
+        setError("Invalid email or password");
+      } else if (error?.message?.includes("User not found")) {
+        setError("No account found with this email address");
+      } else {
+        setError("Failed to sign in. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await signIn("google");
     } catch (error) {
-      setError("Google sign-in failed");
+      console.error("Google sign in error:", error);
+      setError("Failed to sign in with Google");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">CC</span>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <div className="flex justify-center">
+            <ApplyingMyselfLogo size="lg" />
           </div>
+          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+            Welcome back
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
+            >
+              Sign up for free
+            </Link>
+          </p>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{" "}
-          <Link
-            href="/register"
-            className="font-medium text-purple-600 hover:text-purple-500"
-          >
-            create a new account
-          </Link>
-        </p>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
             <div>
-              <label htmlFor="email" className="form-label">
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
                 Email address
               </label>
               <div className="mt-1">
@@ -83,14 +115,14 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input-field"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="Enter your email"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="form-label">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
                 Password
               </label>
               <div className="mt-1">
@@ -102,7 +134,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="Enter your password"
                 />
               </div>
@@ -124,7 +156,7 @@ export default function LoginPage() {
               <div className="text-sm">
                 <Link
                   href="/forgot-password"
-                  className="font-medium text-purple-600 hover:text-purple-500"
+                  className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
                 >
                   Forgot your password?
                 </Link>
@@ -135,7 +167,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Signing in..." : "Sign in"}
               </button>
@@ -156,7 +188,7 @@ export default function LoginPage() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -181,16 +213,16 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-8 text-center">
-        <Link
-          href="/"
-          className="text-purple-600 hover:text-purple-500 font-medium"
-        >
-          ← Back to home
-        </Link>
+        <div className="mt-8 text-center">
+          <Link
+            href="/"
+            className="text-purple-600 hover:text-purple-500 font-medium transition-colors"
+          >
+            ← Back to home
+          </Link>
+        </div>
       </div>
     </div>
   );
-} 
+}

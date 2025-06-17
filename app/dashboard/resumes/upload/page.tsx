@@ -4,6 +4,9 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CloudArrowUpIcon } from "@heroicons/react/24/outline";
+import { useMutation, useConvexAuth } from "convex/react";
+import { api } from "@/convexApi";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export default function UploadResumePage() {
   const router = useRouter();
@@ -13,6 +16,10 @@ export default function UploadResumePage() {
   const [resumeName, setResumeName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Convex mutations
+  const uploadResume = useMutation(api.resumes.upload);
+  const completeUpload = useMutation(api.resumes.completeUpload);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -74,20 +81,60 @@ export default function UploadResumePage() {
     setUploadProgress(0);
 
     try {
-      // TODO: Implement file upload with Convex
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Step 1: Get upload URL from Convex
+      setUploadProgress(10);
+      const { uploadUrl } = await uploadResume({
+        filename: resumeName,
+        fileSize: selectedFile.size,
+        mimeType: selectedFile.type,
+      });
+
+      // Step 2: Upload file to Convex storage
+      setUploadProgress(30);
+      
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": selectedFile.type,
+        },
+        body: selectedFile,
+      });
+
+      if (!result.ok) {
+        throw new Error(`Upload failed: ${result.statusText}`);
       }
 
-      console.log('Uploading file:', selectedFile.name, 'as:', resumeName);
+      setUploadProgress(70);
+      const { storageId } = await result.json();
+
+      // Step 3: Complete the upload and create resume record
+      setUploadProgress(90);
+      await completeUpload({
+        filename: resumeName,
+        fileSize: selectedFile.size,
+        mimeType: selectedFile.type,
+        storageId,
+      });
+
+      setUploadProgress(100);
+      
+      // Small delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Redirect back to resumes list
       router.push("/dashboard/resumes");
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Error uploading file. Please try again.');
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        selectedFile: selectedFile ? {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          type: selectedFile.type
+        } : null
+      });
+      alert(`Error uploading file: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -103,7 +150,8 @@ export default function UploadResumePage() {
   };
 
   return (
-    <div className="p-6">
+    <ProtectedRoute>
+      <div className="p-6">
       <div className="mb-8">
         <Link
           href="/dashboard/resumes"
@@ -255,5 +303,6 @@ export default function UploadResumePage() {
         )}
       </div>
     </div>
+    </ProtectedRoute>
   );
 } 

@@ -1,22 +1,58 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { DocumentIcon, PlusIcon, TrashIcon, StarIcon, CloudArrowUpIcon } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
-
-interface Resume {
-  id: string;
-  name: string;
-  fileName: string;
-  fileSize: number;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convexApi";
+import { Dropdown } from "@/components/ui/Dropdown";
+import { type GenericId as Id } from "convex/values";
 
 export default function ResumesPage() {
-  // Mock data - will be replaced with real data from Convex
-  const resumes: Resume[] = [];
+  // Fetch resumes from Convex
+  const resumesQuery = useQuery(api.resumes.getResumes, {});
+  const deleteResume = useMutation(api.resumes.deleteResume);
+  const setDefaultResume = useMutation(api.resumes.setDefault);
+  
+  const resumes: Array<{
+    _creationTime: number;
+    _id: Id<"resumes">;
+    createdAt: number;
+    extractedText?: string;
+    fileId: Id<"_storage">;
+    fileSize: number;
+    filename: string;
+    isDefault?: boolean;
+    mimeType: string;
+    updatedAt: number;
+    userProfileId: Id<"userProfiles">;
+  }> = resumesQuery?.resumes || [];
+  const isLoading = resumesQuery === undefined;
+  
+  // Count default resumes
+  const defaultResumeCount = resumes.filter(resume => resume.isDefault).length;
+  
+  // State for filter dropdown
+  const [sortBy, setSortBy] = useState("all");
+
+  // Sort resumes based on selected option
+  const sortedResumes = [...resumes].sort((a, b) => {
+    switch (sortBy) {
+      case "default":
+        // Default resumes first, then by creation date (newest first)
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return b.createdAt - a.createdAt;
+      case "newest":
+        // Newest first
+        return b.createdAt - a.createdAt;
+      case "all":
+      default:
+        // Default order (as returned from backend)
+        return 0;
+    }
+  });
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -26,23 +62,22 @@ export default function ResumesPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleSetDefault = async (resumeId: string) => {
+  const handleSetDefault = async (resumeId: Id<"resumes">) => {
     try {
-      // TODO: Implement set default with Convex
-      console.log('Setting default resume:', resumeId);
+      await setDefaultResume({ resumeId });
     } catch (error) {
       console.error('Error setting default resume:', error);
+      alert('Failed to set default resume. Please try again.');
     }
   };
 
-  const handleDelete = async (resumeId: string) => {
+  const handleDelete = async (resumeId: Id<"resumes">) => {
     if (!confirm('Are you sure you want to delete this resume?')) {
       return;
     }
 
     try {
-      // TODO: Implement delete with Convex
-      console.log('Deleting resume:', resumeId);
+      await deleteResume({ resumeId });
     } catch (error) {
       console.error('Error deleting resume:', error);
     }
@@ -87,7 +122,7 @@ export default function ResumesPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Default Resume</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {resumes.find(r => r.isDefault) ? '1' : '0'}
+                {defaultResumeCount}
               </p>
             </div>
           </div>
@@ -112,15 +147,26 @@ export default function ResumesPage() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Your Resumes</h2>
           <div className="flex space-x-2">
-            <select className="input-field text-sm">
-              <option>All Resumes</option>
-              <option>Default First</option>
-              <option>Newest First</option>
-            </select>
+            <Dropdown
+              options={[
+                { value: "all", label: "All Resumes" },
+                { value: "default", label: "Default First" },
+                { value: "newest", label: "Newest First" },
+              ]}
+              value={sortBy}
+              onChange={setSortBy}
+              size="sm"
+              className="min-w-[140px]"
+            />
           </div>
         </div>
 
-        {resumes.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading resumes...</p>
+          </div>
+        ) : resumes.length === 0 ? (
           <div className="text-center py-12">
             <DocumentIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No resumes uploaded</h3>
@@ -133,8 +179,8 @@ export default function ResumesPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {resumes.map((resume) => (
-              <div key={resume.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+            {sortedResumes.map((resume) => (
+              <div key={resume._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -142,29 +188,46 @@ export default function ResumesPage() {
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-gray-900">{resume.name}</h3>
+                        <h3 className="font-medium text-gray-900">{resume.filename}</h3>
                         {resume.isDefault && (
-                          <StarIconSolid className="w-4 h-4 text-yellow-500" />
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <StarIconSolid className="w-3 h-3 mr-1" />
+                            Default
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{resume.fileName}</p>
+                      <p className="text-sm text-gray-500">{resume.filename}</p>
                       <p className="text-xs text-gray-400">
-                        {formatFileSize(resume.fileSize)} • Uploaded {resume.createdAt}
+                        {formatFileSize(resume.fileSize)} • Uploaded {new Date(resume.createdAt).toLocaleDateString()}
+                        {resume.extractedText ? (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✓ Text Extracted
+                          </span>
+                        ) : (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⏳ Processing
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {!resume.isDefault && (
+                    {resume.isDefault ? (
+                      <span className="text-yellow-600 text-sm font-medium flex items-center space-x-1">
+                        <StarIconSolid className="w-4 h-4" />
+                        <span>Default</span>
+                      </span>
+                    ) : (
                       <button
-                        onClick={() => handleSetDefault(resume.id)}
-                        className="text-yellow-600 hover:text-yellow-700 text-sm font-medium flex items-center space-x-1"
+                        onClick={() => handleSetDefault(resume._id)}
+                        className="text-gray-500 hover:text-yellow-600 text-sm font-medium flex items-center space-x-1 transition-colors"
                       >
                         <StarIcon className="w-4 h-4" />
                         <span>Set Default</span>
                       </button>
                     )}
                     <Link
-                      href={`/dashboard/resumes/${resume.id}`}
+                      href={`/dashboard/resumes/${resume._id}`}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                     >
                       View
@@ -173,7 +236,7 @@ export default function ResumesPage() {
                       Download
                     </button>
                     <button
-                      onClick={() => handleDelete(resume.id)}
+                      onClick={() => handleDelete(resume._id)}
                       className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center space-x-1"
                     >
                       <TrashIcon className="w-4 h-4" />
