@@ -44,4 +44,3 @@ certificates
 # Environment files
 .env*
 !.env.example
-convexApi.ts
