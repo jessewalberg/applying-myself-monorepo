@@ -31,27 +31,23 @@ export default function LoginPage() {
       if (result) {
         router.push("/dashboard");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login error:", error);
 
-      // Handle misleading email verification errors during sign-in
-      if (error?.message?.includes("Could not send verification email")) {
-        setError("Invalid email or password. Please check your credentials and try again.");
-        return;
-      }
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Check if this is an email verification error
-      if (error?.message?.includes("verification") || error?.message?.includes("verify")) {
+      // Check if this is an email verification error (user needs to verify their email)
+      if (errorMessage.includes("verification") || errorMessage.includes("verify") || errorMessage.includes("not verified")) {
         // Redirect to verification page
         router.push(`/verify-email-sent?email=${encodeURIComponent(email)}`);
         return;
       }
 
-      if (error?.message?.includes("Invalid credentials") ||
-        error?.message?.includes("wrong password") ||
-        error?.message?.includes("incorrect password")) {
+      if (errorMessage.includes("Invalid credentials") ||
+        errorMessage.includes("wrong password") ||
+        errorMessage.includes("incorrect password")) {
         setError("Invalid email or password");
-      } else if (error?.message?.includes("User not found")) {
+      } else if (errorMessage.includes("User not found")) {
         setError("No account found with this email address");
       } else {
         setError("Failed to sign in. Please try again.");
@@ -84,7 +80,7 @@ export default function LoginPage() {
             Welcome back
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Don't have an account?{" "}
+            Don&rsquo;t have an account?{" "}
             <Link
               href="/register"
               className="font-medium text-purple-600 hover:text-purple-500 transition-colors"

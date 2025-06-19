@@ -25,7 +25,7 @@ export default function NotificationsPage() {
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
         <p className="text-sm text-gray-600">
-          Choose which notifications you'd like to receive.
+          Choose which notifications you&rsquo;d like to receive.
         </p>
       </div>
 

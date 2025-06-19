@@ -12,27 +12,40 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronDown,
-  Bell,
-  Search
+  ChevronDown
 } from 'lucide-react';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convexApi";
 import { ApplyingMyselfLogo } from "./ApplyingMyselfLogo";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  user?: {
-    name?: string;
-    email?: string;
-    credits?: number;
-    plan?: string;
-  } | null;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, user }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState('');
   const router = useRouter();
+
+  // Ensure user profile exists and fetch user data
+  const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
+  const [profileEnsured, setProfileEnsured] = useState(false);
+
+  useEffect(() => {
+    ensureUserProfile({}).then(() => setProfileEnsured(true));
+  }, [ensureUserProfile]);
+
+  // Fetch user profile data
+  const userProfile = useQuery(api.userHelpers.getUserProfile, profileEnsured ? {} : "skip");
+
+  // Create user object for compatibility
+  const user = userProfile ? {
+    name: userProfile.name,
+    email: userProfile.email,
+    credits: userProfile.credits,
+    plan: userProfile.plan
+  } : null;
 
   // Get current path for navigation highlighting
   useEffect(() => {

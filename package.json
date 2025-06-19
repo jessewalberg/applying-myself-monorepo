@@ -11,7 +11,11 @@
     "generate-api": "npx convex-helpers ts-api-spec --output-file convexApi",
     "postbuild": "next-sitemap",
     "sitemap": "next-sitemap",
-    "validate-seo": "node scripts/validate-seo.js"
+    "validate-seo": "node scripts/validate-seo.js",
+    "dev:staging": "NODE_ENV=staging next dev",
+    "build:staging": "NODE_ENV=staging next build",
+    "deploy:staging": "vercel --target staging",
+    "deploy:production": "vercel --prod"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.87",

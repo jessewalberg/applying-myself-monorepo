@@ -34,9 +34,9 @@ export default function NewCoverLetterPage() {
     updatedAt: number;
     userProfileId: Id<"userProfiles">;
   }> = resumesQuery?.resumes || [];
-  
+
   // Get user profile for credits
-  const userProfile = useQuery(api.users.getUserProfile, profileEnsured ? {} : "skip");
+  const userProfile = useQuery(api.userHelpers.getUserProfile, profileEnsured ? {} : "skip");
 
   // Find most recent resume
   const mostRecentResume = resumes.length > 0
@@ -52,7 +52,7 @@ export default function NewCoverLetterPage() {
     length: "medium",
     customInstructions: "",
   });
-  
+
   // Job tracking state
   const [createJobApplication, setCreateJobApplication] = useState(false);
   const [jobApplicationData, setJobApplicationData] = useState({
@@ -63,7 +63,7 @@ export default function NewCoverLetterPage() {
     notes: "",
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // Check if user has enough credits
   const hasEnoughCredits = (userProfile?.credits || 0) >= 2;
 
@@ -88,23 +88,23 @@ export default function NewCoverLetterPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!selectedResumeId) {
       alert("Please select a resume");
       return;
     }
-    
+
     if (!formData.jobTitle.trim() || !formData.companyName.trim()) {
       alert("Please fill in the job title and company name");
       return;
     }
-    
+
     setIsGenerating(true);
-    
+
     try {
       const result = await generateCoverLetter({
-        resumeId: selectedResumeId as any,
+        resumeId: selectedResumeId as Id<"resumes">,
         jobTitle: formData.jobTitle.trim(),
         companyName: formData.companyName.trim(),
         jobDescription: formData.jobDescription.trim() || undefined,
@@ -122,14 +122,15 @@ export default function NewCoverLetterPage() {
           notes: jobApplicationData.notes.trim() || undefined,
         } : undefined,
       });
-      
+
       console.log("Cover letter generation started:", result);
-      
+
       // Redirect to the generated cover letter
       router.push(`/dashboard/cover-letters/${result.coverLetter._id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error generating cover letter:", error);
-      alert(error.message || "Failed to generate cover letter. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate cover letter. Please try again.";
+      alert(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -157,12 +158,12 @@ export default function NewCoverLetterPage() {
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Resume *</label>
             <Dropdown
-              options={resumes.length === 0 
+              options={resumes.length === 0
                 ? [{ value: "", label: "No resumes found" }]
                 : resumes.map((resume) => ({
-                    value: resume._id,
-                    label: `${resume.filename}${resume.createdAt ? ` - Uploaded ${new Date(resume.createdAt).toLocaleDateString()}` : ""}`
-                  }))
+                  value: resume._id,
+                  label: `${resume.filename}${resume.createdAt ? ` - Uploaded ${new Date(resume.createdAt).toLocaleDateString()}` : ""}`
+                }))
               }
               value={selectedResumeId}
               onChange={setSelectedResumeId}
@@ -178,7 +179,7 @@ export default function NewCoverLetterPage() {
 
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Job Title *</label>
@@ -227,7 +228,7 @@ export default function NewCoverLetterPage() {
 
           <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Customization</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Tone</label>

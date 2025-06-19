@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation } from "convex/react";
-import { api } from "@/convexApi";
+
 import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 export default function RegisterPage() {
@@ -22,7 +21,7 @@ export default function RegisterPage() {
   const { signIn } = useAuthActions();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
+
 
   useEffect(() => {
     // Check if user is returning for verification
@@ -72,17 +71,18 @@ export default function RegisterPage() {
       // With email verification enabled, user won't be signed in yet
       // Show verification message instead of redirecting
       router.push(`/verify-email-sent?email=${encodeURIComponent(formData.email)}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Registration error:", error);
-      if (error?.message?.includes("User already exists")) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("User already exists")) {
         if (isReturningUser) {
           setError("This will generate a new verification code for your existing account. Please use the same password you used when you first signed up.");
         } else {
           setError("An account with this email already exists. Please sign in instead.");
         }
-      } else if (error?.message?.includes("Invalid email")) {
+      } else if (errorMessage.includes("Invalid email")) {
         setError("Please enter a valid email address.");
-      } else if (error?.message?.includes("Password")) {
+      } else if (errorMessage.includes("Password")) {
         setError("Password must be at least 8 characters long.");
       } else {
         setError("Failed to create account. Please try again.");

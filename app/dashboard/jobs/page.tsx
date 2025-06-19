@@ -106,7 +106,7 @@ export default function JobsPage() {
   // Get job applications and extracted jobs
   const jobApplicationsQuery = useQuery(api.jobApplications.getJobApplications, profileEnsured ? {} : "skip");
   const extractedJobsQuery = useQuery(api.jobs.getExtractedJobs, profileEnsured ? {} : "skip");
-  
+
   const applications: JobApplication[] = jobApplicationsQuery?.jobApplications || [];
   const extractedJobs: ExtractedJob[] = extractedJobsQuery?.jobs || [];
   const isLoading = !profileEnsured || jobApplicationsQuery === undefined || extractedJobsQuery === undefined;
@@ -148,21 +148,21 @@ export default function JobsPage() {
   const filteredJobs = combinedJobs.filter(job => {
     // Enhanced search - search in multiple fields
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = searchTerm === "" || 
+    const matchesSearch = searchTerm === "" ||
       job.jobTitle.toLowerCase().includes(searchLower) ||
       job.companyName.toLowerCase().includes(searchLower) ||
       (job.location && job.location.toLowerCase().includes(searchLower)) ||
       (job.salary && job.salary.toLowerCase().includes(searchLower)) ||
       (job.notes && job.notes.toLowerCase().includes(searchLower));
-    
+
     // Status filter
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "no-status" && !job.status) ||
-                         job.status === statusFilter;
-    
+    const matchesStatus = statusFilter === "all" ||
+      (statusFilter === "no-status" && !job.status) ||
+      job.status === statusFilter;
+
     // Source filter
     const matchesSource = sourceFilter === "all" || job.source === sourceFilter;
-    
+
     return matchesSearch && matchesStatus && matchesSource;
   });
 
@@ -185,9 +185,7 @@ export default function JobsPage() {
     return applications.filter(app => app.status === status).length;
   };
 
-  const getExtractedJobsCount = () => {
-    return extractedJobs.length;
-  };
+
 
   const handleDelete = async (jobId: string) => {
     // Find the job to determine its source
@@ -202,11 +200,11 @@ export default function JobsPage() {
     try {
       if (job.source === "application") {
         await deleteJobApplicationMutation({
-          jobApplicationId: jobId as any,
+          jobApplicationId: jobId as Id<"jobApplications">,
         });
       } else {
         await deleteExtractedJobMutation({
-          jobId: jobId as any,
+          jobId: jobId as Id<"extractedJobs">,
         });
       }
     } catch (error) {
@@ -236,7 +234,7 @@ export default function JobsPage() {
       if (editingSource === "application") {
         // Update job application
         await updateJobApplicationMutation({
-          jobApplicationId: editingId as any,
+          jobApplicationId: editingId as Id<"jobApplications">,
           jobTitle: editingData.jobTitle,
           companyName: editingData.companyName,
           location: editingData.location,
@@ -259,15 +257,15 @@ export default function JobsPage() {
             notes: editingData.notes,
             appliedDate: Date.now(),
           });
-          
+
           // Delete the extracted job
           await deleteExtractedJobMutation({
-            jobId: editingId as any,
+            jobId: editingId as Id<"extractedJobs">,
           });
         } else {
           // Just update the extracted job
           await updateExtractedJobMutation({
-            jobId: editingId as any,
+            jobId: editingId as Id<"extractedJobs">,
             extractedData: {
               title: editingData.jobTitle,
               company: editingData.companyName,
@@ -279,7 +277,7 @@ export default function JobsPage() {
           });
         }
       }
-      
+
       setEditingId(null);
       setEditingData({});
       setEditingSource(null);
@@ -388,7 +386,7 @@ export default function JobsPage() {
                 <FunnelIcon className="h-4 w-4 text-gray-500" />
                 <span className="text-sm font-medium text-gray-700">Filters:</span>
               </div>
-              
+
               {/* Status Filter */}
               <Dropdown
                 options={[
@@ -403,7 +401,6 @@ export default function JobsPage() {
                 value={statusFilter}
                 onChange={setStatusFilter}
                 className="min-w-[130px]"
-                size="sm"
               />
 
               {/* Source Filter */}
@@ -416,7 +413,6 @@ export default function JobsPage() {
                 value={sourceFilter}
                 onChange={setSourceFilter}
                 className="min-w-[130px]"
-                size="sm"
               />
 
               {/* Clear Filters Button */}
@@ -451,10 +447,10 @@ export default function JobsPage() {
           {hasActiveFilters && (
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
               <span className="text-xs font-medium text-gray-500">Active filters:</span>
-              
+
               {searchTerm && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  Search: "{searchTerm}"
+                  Search: &ldquo;{searchTerm}&rdquo;
                   <button
                     onClick={clearSearch}
                     className="ml-1 hover:text-purple-600"
@@ -463,7 +459,7 @@ export default function JobsPage() {
                   </button>
                 </span>
               )}
-              
+
               {statusFilter !== "all" && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   Status: {statusFilter === "no-status" ? "No Status" : statusLabels[statusFilter as keyof typeof statusLabels] || statusFilter}
@@ -475,7 +471,7 @@ export default function JobsPage() {
                   </button>
                 </span>
               )}
-              
+
               {sourceFilter !== "all" && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   Source: {sourceFilter === "application" ? "Applications" : "Extracted Jobs"}
@@ -506,7 +502,7 @@ export default function JobsPage() {
               {combinedJobs.length === 0 ? "No jobs yet" : "No jobs match your search"}
             </h3>
             <p className="text-gray-500 mb-6">
-              {combinedJobs.length === 0 
+              {combinedJobs.length === 0
                 ? "Start tracking job applications or extract jobs from job sites."
                 : "Try adjusting your search or filter criteria."
               }
@@ -548,7 +544,7 @@ export default function JobsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredJobs.filter(job => job._id).map((job) => {
                   const isEditing = editingId === job._id;
-                  
+
                   return (
                     <tr key={job._id} className={isEditing ? "bg-blue-50" : "hover:bg-gray-50"}>
                       <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'}`}>
@@ -664,8 +660,8 @@ export default function JobsPage() {
                         )}
                       </td>
                       <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm text-gray-500`}>
-                        {job.appliedDate ? new Date(job.appliedDate).toLocaleDateString() : 
-                         job.extractedAt ? new Date(job.extractedAt).toLocaleDateString() : "—"}
+                        {job.appliedDate ? new Date(job.appliedDate).toLocaleDateString() :
+                          job.extractedAt ? new Date(job.extractedAt).toLocaleDateString() : "—"}
                       </td>
                       <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm font-medium`}>
                         {isEditing ? (

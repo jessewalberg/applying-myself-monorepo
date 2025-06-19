@@ -70,6 +70,7 @@ export default function BillingPage() {
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
   const createSubscriptionCheckout = useAction(api.billing.createSubscriptionCheckout);
   const cancelSubscription = useMutation(api.billing.cancelSubscription);
+  const reactivateSubscription = useMutation(api.billing.reactivateSubscription);
   const [profileEnsured, setProfileEnsured] = useState(false);
 
   useEffect(() => {
@@ -94,8 +95,6 @@ export default function BillingPage() {
   const userProfile = useQuery(api.userHelpers.getUserProfile, profileEnsured ? {} : "skip");
   const currentSubscription = useQuery(api.billing.getCurrentSubscription, profileEnsured ? {} : "skip");
   const paymentHistoryData = useQuery(api.billing.getPaymentHistory, profileEnsured ? { limit: 10 } : "skip");
-  const billingStats = useQuery(api.billing.getBillingStats, profileEnsured ? {} : "skip");
-
 
   // Safely get payment history as array
   const paymentHistory = paymentHistoryData?.payments || [];
@@ -108,8 +107,18 @@ export default function BillingPage() {
   const creditsRemaining = userProfile?.credits || 0;
   const creditsTotal = currentPlanInfo?.credits || 0;
 
+  // Check if subscription is set to cancel at period end
+  const isSetToCancelAtPeriodEnd = () => {
+    return currentSubscription?.subscription?.cancelAtPeriodEnd === true;
+  };
+
   // Format subscription status
   const getSubscriptionStatus = () => {
+    // Check if subscription is set to cancel at period end
+    if (isSetToCancelAtPeriodEnd()) {
+      return "Canceling at Period End";
+    }
+
     // First check if user has subscription status in their profile
     if (userProfile?.subscriptionStatus) {
       switch (userProfile.subscriptionStatus) {
@@ -129,7 +138,7 @@ export default function BillingPage() {
           return "Unknown";
       }
     }
-    
+
     // Fallback to subscription object status
     if (currentSubscription?.subscription?.status) {
       switch (currentSubscription.subscription.status) {
@@ -149,12 +158,12 @@ export default function BillingPage() {
           return "Unknown";
       }
     }
-    
+
     // If user has a paid plan but no subscription status, assume active
     if (userProfile?.plan && userProfile.plan !== "none") {
       return "Active";
     }
-    
+
     return "No Subscription";
   };
 
@@ -163,6 +172,8 @@ export default function BillingPage() {
       case "active":
       case "trialing":
         return "bg-green-100 text-green-800";
+      case "canceling at period end":
+        return "bg-orange-100 text-orange-800";
       case "canceled":
       case "past_due":
         return "bg-red-100 text-red-800";
@@ -179,7 +190,7 @@ export default function BillingPage() {
       setError("You are already subscribed to this plan.");
       return;
     }
-    
+
     console.log("🔄 Starting upgrade to:", planName);
     setIsUpgrading(planName);
     setError(null);
@@ -187,12 +198,10 @@ export default function BillingPage() {
     try {
       const plan = plans.find(p => p.name === planName);
       console.log("📋 Selected plan:", plan);
-      
+
       if (!plan || !plan.priceId) {
         throw new Error("Invalid plan selected");
       }
-
-
 
       console.log("💳 Creating checkout session...");
       const result = await createSubscriptionCheckout({
@@ -215,9 +224,10 @@ export default function BillingPage() {
         console.error("❌ No checkout URL in result:", result);
         throw new Error("Failed to create checkout session - no URL returned");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Error creating checkout:", error);
-      setError(error.message || "Failed to start upgrade process. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to start upgrade process. Please try again.";
+      setError(errorMessage);
     } finally {
       setIsUpgrading(null);
     }
@@ -230,11 +240,27 @@ export default function BillingPage() {
 
     try {
       await cancelSubscription({ cancelAtPeriodEnd: true });
+      setSuccessMessage("Your subscription has been set to cancel at the end of the current billing period.");
       // Refresh the page or show success message
       window.location.reload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error canceling subscription:", error);
       setError("Failed to cancel subscription. Please try again.");
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    if (!confirm("Are you sure you want to reactivate your subscription? It will continue renewing after the current period.")) {
+      return;
+    }
+
+    try {
+      await reactivateSubscription({});
+      setSuccessMessage("Your subscription has been reactivated and will continue after the current period.");
+      window.location.reload();
+    } catch (error: unknown) {
+      console.error("Error reactivating subscription:", error);
+      setError("Failed to reactivate subscription. Please try again.");
     }
   };
 
@@ -275,6 +301,24 @@ export default function BillingPage() {
         </p>
       </div>
 
+      {/* Debug Section - Remove this after fixing */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-8 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Debug Info (Development Only)</h3>
+          <div className="text-xs text-gray-600 space-y-1">
+            <div>User Plan: {userProfile?.plan || 'none'}</div>
+            <div>User Subscription Status: {userProfile?.subscriptionStatus || 'none'}</div>
+            <div>Current Subscription Status: {currentSubscription?.subscription?.status || 'none'}</div>
+            <div>Has Current Subscription: {currentSubscription?.hasSubscription ? 'true' : 'false'}</div>
+            <div>Computed Status: {getSubscriptionStatus()}</div>
+            <div>Cancel Button Should Show: {currentSubscription?.subscription?.status === "active" && !isSetToCancelAtPeriodEnd() ? 'YES' : 'NO'}</div>
+            <div>Cancel At Period End: {isSetToCancelAtPeriodEnd() ? 'YES' : 'NO'}</div>
+            <div>Reactivate Button Should Show: {isSetToCancelAtPeriodEnd() ? 'YES' : 'NO'}</div>
+            <div>Subscription Object: {JSON.stringify(currentSubscription?.subscription || {}, null, 2)}</div>
+          </div>
+        </div>
+      )}
+
       {/* Success Message */}
       {successMessage && (
         <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
@@ -309,7 +353,7 @@ export default function BillingPage() {
             {getSubscriptionStatus()}
           </span>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{currentPlanInfo?.name || "None"}</h3>
@@ -334,7 +378,7 @@ export default function BillingPage() {
           <div>
             <h4 className="text-sm font-medium text-gray-500 mb-1">Next Billing</h4>
             <p className="text-sm text-gray-900">
-              {currentSubscription?.subscription?.currentPeriodEnd 
+              {currentSubscription?.subscription?.currentPeriodEnd
                 ? new Date(currentSubscription.subscription.currentPeriodEnd).toLocaleDateString()
                 : "N/A"
               }
@@ -343,7 +387,8 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          {currentSubscription?.subscription?.status === "active" && (
+          {/* Show cancel/reactivate options based on subscription state */}
+          {currentSubscription?.subscription?.status === "active" && !isSetToCancelAtPeriodEnd() && (
             <button
               onClick={handleCancelSubscription}
               className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
@@ -351,11 +396,29 @@ export default function BillingPage() {
               Cancel Subscription
             </button>
           )}
+
+          {isSetToCancelAtPeriodEnd() && (
+            <>
+              <div className="px-4 py-2 text-sm bg-orange-50 border border-orange-200 rounded-lg text-orange-800 text-center flex items-center justify-center">
+                ⚠️ Your subscription will cancel on{" "}
+                {currentSubscription?.subscription?.currentPeriodEnd
+                  ? new Date(currentSubscription.subscription.currentPeriodEnd).toLocaleDateString()
+                  : "the next billing date"
+                }
+              </div>
+              <button
+                onClick={handleReactivateSubscription}
+                className="px-4 py-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+              >
+                Keep Subscription Active
+              </button>
+            </>
+          )}
           {(() => {
             // Determine the next upgrade option based on current plan
             let nextPlan = "";
             let nextPlanName = "";
-            
+
             if (currentPlan === "none" || !currentPlan) {
               nextPlan = "Starter";
               nextPlanName = "Get Started";
@@ -366,7 +429,7 @@ export default function BillingPage() {
               nextPlan = "Hired";
               nextPlanName = "Upgrade to Hired";
             }
-            
+
             // Only show upgrade button if there's a next plan
             if (nextPlan) {
               return (
@@ -394,9 +457,8 @@ export default function BillingPage() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 relative ${
-                plan.recommended ? 'ring-2 ring-purple-500' : ''
-              }`}
+              className={`bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 relative ${plan.recommended ? 'ring-2 ring-purple-500' : ''
+                }`}
             >
               {plan.recommended && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -405,7 +467,7 @@ export default function BillingPage() {
                   </span>
                 </div>
               )}
-              
+
               <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
                 <div className="mt-2">
@@ -426,11 +488,10 @@ export default function BillingPage() {
 
               <button
                 onClick={() => handleUpgrade(plan.name)}
-                className={`w-full ${
-                  plan.name.toLowerCase() === currentPlan.toLowerCase()
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : 'btn-primary'
-                } disabled:opacity-50`}
+                className={`w-full ${plan.name.toLowerCase() === currentPlan.toLowerCase()
+                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                  : 'btn-primary'
+                  } disabled:opacity-50`}
                 disabled={plan.name.toLowerCase() === currentPlan.toLowerCase() || isUpgrading === plan.name}
               >
                 {isUpgrading === plan.name ? (
@@ -448,8 +509,6 @@ export default function BillingPage() {
           ))}
         </div>
       </div>
-
-
 
       {/* Transaction History */}
       <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
@@ -504,17 +563,17 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {paymentHistory.map((transaction: any) => (
+                {paymentHistory.map((transaction: { _id: string; createdAt: number; description?: string; type: string; currency?: string; amount: number; creditsGranted?: number; metadata?: { creditsAdded?: number; credits?: number }; status: string }) => (
                   <tr key={transaction._id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(transaction.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {transaction.description || 
-                         (transaction.type === 'subscription' ? 'Subscription Payment' :
-                          transaction.type === 'credits' ? 'Credit Purchase' : 
-                          'Payment')}
+                        {transaction.description ||
+                          (transaction.type === 'subscription' ? 'Subscription Payment' :
+                            transaction.type === 'credits' ? 'Credit Purchase' :
+                              'Payment')}
                       </div>
                       <div className="text-xs text-gray-500 capitalize">
                         {transaction.type} • {transaction.currency?.toUpperCase() || 'USD'}
@@ -524,35 +583,34 @@ export default function BillingPage() {
                       {formatCurrency(transaction.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.creditsGranted ? `+${transaction.creditsGranted}` : 
-                       transaction.metadata?.creditsAdded ? `+${transaction.metadata.creditsAdded}` : 
-                       transaction.metadata?.credits ? `+${transaction.metadata.credits}` : 
-                       '—'}
+                      {transaction.creditsGranted ? `+${transaction.creditsGranted}` :
+                        transaction.metadata?.creditsAdded ? `+${transaction.metadata.creditsAdded}` :
+                          transaction.metadata?.credits ? `+${transaction.metadata.credits}` :
+                            '—'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          transaction.status === 'succeeded'
-                            ? 'bg-green-100 text-green-800'
-                            : transaction.status === 'pending'
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${transaction.status === 'succeeded'
+                          ? 'bg-green-100 text-green-800'
+                          : transaction.status === 'pending'
                             ? 'bg-yellow-100 text-yellow-800'
                             : transaction.status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : transaction.status === 'canceled'
-                            ? 'bg-gray-100 text-gray-800'
-                            : transaction.status === 'refunded'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
+                              ? 'bg-red-100 text-red-800'
+                              : transaction.status === 'canceled'
+                                ? 'bg-gray-100 text-gray-800'
+                                : transaction.status === 'refunded'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-800'
+                          }`}
                       >
                         {transaction.status === 'succeeded' && <CheckIcon className="w-3 h-3 mr-1" />}
                         {transaction.status === 'failed' && <XMarkIcon className="w-3 h-3 mr-1" />}
                         {transaction.status === 'canceled' && <XMarkIcon className="w-3 h-3 mr-1" />}
-                        {transaction.status === 'succeeded' ? 'Completed' : 
-                         transaction.status === 'pending' ? 'Pending' : 
-                         transaction.status === 'failed' ? 'Failed' :
-                         transaction.status === 'canceled' ? 'Canceled' :
-                         transaction.status === 'refunded' ? 'Refunded' : 'Unknown'}
+                        {transaction.status === 'succeeded' ? 'Completed' :
+                          transaction.status === 'pending' ? 'Pending' :
+                            transaction.status === 'failed' ? 'Failed' :
+                              transaction.status === 'canceled' ? 'Canceled' :
+                                transaction.status === 'refunded' ? 'Refunded' : 'Unknown'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -561,14 +619,14 @@ export default function BillingPage() {
                         if (transaction.status === 'succeeded') {
                           return (
                             <Link
-                              href={`/dashboard/billing/receipt/${transaction._id}`}
+                              href={`/dashboard/billing/receipts/${transaction._id}`}
                               className="text-purple-600 hover:text-purple-700 font-medium"
                             >
                               View Receipt
                             </Link>
                           );
                         }
-                        
+
                         // For pending transactions
                         if (transaction.status === 'pending') {
                           return (
@@ -577,7 +635,7 @@ export default function BillingPage() {
                             </span>
                           );
                         }
-                        
+
                         // For failed transactions
                         if (transaction.status === 'failed') {
                           return (
@@ -586,7 +644,7 @@ export default function BillingPage() {
                             </span>
                           );
                         }
-                        
+
                         // Default case
                         return (
                           <span className="text-gray-400 text-xs">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DocumentTextIcon, PlusIcon, ClockIcon, CheckCircleIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convexApi";
-import { Dropdown } from "@/components/ui/Dropdown";  
+import { Dropdown } from "@/components/ui/Dropdown";
 import { type GenericId as Id } from "convex/values";
 
 export default function CoverLettersPage() {
@@ -27,7 +27,11 @@ export default function CoverLettersPage() {
     creditsUsed: number;
     extractedJobId?: Id<"extractedJobs">;
     jobTitle?: string;
-    preferences?: any;
+    preferences?: {
+      tone?: string;
+      length?: string;
+      customInstructions?: string;
+    };
     resumeId: Id<"resumes">;
     userProfileId: Id<"userProfiles">;
   }> = coverLettersQuery?.coverLetters || [];
@@ -37,8 +41,8 @@ export default function CoverLettersPage() {
   const thisMonth = new Date();
   thisMonth.setDate(1);
   thisMonth.setHours(0, 0, 0, 0);
-  
-  const thisMonthCount = coverLetters.filter(letter => 
+
+  const thisMonthCount = coverLetters.filter(letter =>
     (letter.createdAt || letter._creationTime) >= thisMonth.getTime()
   ).length;
 
@@ -49,7 +53,7 @@ export default function CoverLettersPage() {
   const filteredCoverLetters = coverLetters.filter(letter => {
     const letterDate = new Date(letter.createdAt || letter._creationTime);
     const now = new Date();
-    
+
     switch (filterBy) {
       case "week":
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -147,7 +151,6 @@ export default function CoverLettersPage() {
               ]}
               value={filterBy}
               onChange={setFilterBy}
-              size="sm"
               className="min-w-[140px]"
             />
           </div>
@@ -165,7 +168,7 @@ export default function CoverLettersPage() {
             <p className="text-gray-500 mb-6">
               Try selecting a different filter option to see your cover letters.
             </p>
-            <button 
+            <button
               onClick={() => setFilterBy("all")}
               className="text-purple-600 hover:text-purple-700 font-medium"
             >
@@ -179,8 +182,8 @@ export default function CoverLettersPage() {
             <p className="text-gray-500 mb-6">
               Generate your first cover letter to get started!
             </p>
-            <Link 
-              href="/dashboard/cover-letters/new" 
+            <Link
+              href="/dashboard/cover-letters/new"
               className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
             >
               Generate Your First Cover Letter

@@ -13,12 +13,11 @@ type JobApplication = {
   _id: Id<"jobApplications">;
   _creationTime: number;
   appliedDate?: number;
-  [key: string]: any;
 };
 
 export default function DashboardPage() {
   const router = useRouter();
-  
+
   // Ensure user profile exists
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
   const [profileEnsured, setProfileEnsured] = useState(false);
@@ -41,12 +40,12 @@ export default function DashboardPage() {
   const thisMonth = new Date();
   thisMonth.setDate(1);
   thisMonth.setHours(0, 0, 0, 0);
-  
-  const thisMonthCoverLetters = coverLetters.filter(letter => 
+
+  const thisMonthCoverLetters = coverLetters.filter(letter =>
     (letter.createdAt || letter._creationTime) >= thisMonth.getTime()
   ).length;
 
-  const thisMonthApplications = jobApplications.filter((app: JobApplication) => 
+  const thisMonthApplications = jobApplications.filter((app: JobApplication) =>
     (app.appliedDate || app._creationTime) >= thisMonth.getTime()
   ).length;
 
@@ -102,15 +101,15 @@ export default function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Welcome back! Here's an overview of your account.
+          Welcome back! Here&rsquo;s an overview of your account.
         </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {stats.map((stat) => (
-          <Link 
-            key={stat.name} 
+          <Link
+            key={stat.name}
             href={stat.href}
             className="group block"
           >
@@ -145,21 +144,21 @@ export default function DashboardPage() {
         <div className="card">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button 
+            <button
               onClick={handleGenerateCoverLetter}
               className="w-full btn-primary flex items-center justify-center space-x-2"
             >
               <DocumentTextIcon className="w-5 h-5" />
               <span>Generate Cover Letter</span>
             </button>
-            <button 
+            <button
               onClick={handleUploadResume}
               className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 font-medium transition-colors flex items-center justify-center space-x-2"
             >
               <DocumentIcon className="w-5 h-5" />
               <span>Upload Resume</span>
             </button>
-            <button 
+            <button
               onClick={handleAddJobApplication}
               className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 font-medium transition-colors flex items-center justify-center space-x-2"
             >
@@ -177,7 +176,7 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400 mb-6">
               Start by generating your first cover letter!
             </p>
-            <button 
+            <button
               onClick={handleGenerateCoverLetter}
               className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
             >
