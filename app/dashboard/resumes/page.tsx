@@ -14,7 +14,7 @@ export default function ResumesPage() {
   const resumesQuery = useQuery(api.resumes.getResumes, {});
   const deleteResume = useMutation(api.resumes.deleteResume);
   const setDefaultResume = useMutation(api.resumes.setDefault);
-  
+
   const resumes: Array<{
     _creationTime: number;
     _id: Id<"resumes">;
@@ -29,10 +29,10 @@ export default function ResumesPage() {
     userProfileId: Id<"userProfiles">;
   }> = resumesQuery?.resumes || [];
   const isLoading = resumesQuery === undefined;
-  
+
   // Count default resumes
   const defaultResumeCount = resumes.filter(resume => resume.isDefault).length;
-  
+
   // State for filter dropdown
   const [sortBy, setSortBy] = useState("all");
 
@@ -155,7 +155,6 @@ export default function ResumesPage() {
               ]}
               value={sortBy}
               onChange={setSortBy}
-              size="sm"
               className="min-w-[140px]"
             />
           </div>
