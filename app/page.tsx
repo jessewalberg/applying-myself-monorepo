@@ -1,7 +1,12 @@
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { StructuredData, organizationSchema, webApplicationSchema, serviceSchema } from "@/components/StructuredData";
 import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
+import { RedirectIfAuthenticated } from "@/components/RedirectIfAuthenticated";
 
 export const metadata: Metadata = {
   title: "AI Cover Letter Generator - Free & Personalized",
@@ -51,6 +56,8 @@ const STARTER_CREDITS = JOB_EXTRACTION_COST + RESUME_UPLOAD_COST + COVER_LETTER_
 
 // Navigation Component
 function Navigation() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -60,6 +67,7 @@ function Navigation() {
             <span className="text-xl font-bold text-gray-900">Applying Myself</span>
           </div>
 
+          {/* Desktop navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">Features</Link>
             <Link href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">Pricing</Link>
@@ -72,13 +80,66 @@ function Navigation() {
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-            <button className="text-gray-600 hover:text-gray-900 p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="text-gray-600 hover:text-gray-900 p-2 rounded-lg transition-colors"
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
             </button>
           </div>
         </div>
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1 bg-white/95 backdrop-blur-md border-t border-gray-100">
+              <Link
+                href="#features"
+                className="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Features
+              </Link>
+              <Link
+                href="#pricing"
+                className="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              <Link
+                href="#testimonials"
+                className="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Reviews
+              </Link>
+              <Link
+                href="/login"
+                className="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="block mx-3 mt-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg text-center"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Get started
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
@@ -210,81 +271,89 @@ function CompanyLogos() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 items-center justify-items-center opacity-60">
           {/* Google */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/google.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Google"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Apple */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/apple.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Apple"
+              width={160}
+              height={56}
               className="h-14 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Microsoft */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/microsoft.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Microsoft"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Meta */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/meta.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Meta"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Netflix */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/netflix.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Netflix"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Tesla */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/tesla.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Tesla"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Disney */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/disney.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Disney"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
 
           {/* Nike */}
           <div className="h-16 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-300">
-            <img
+            <Image
               src="https://img.logo.dev/nike.com?token=pk_Qr86mvCGSU67diH-oAXvVA&format=png&size=160"
               alt="Nike"
+              width={160}
+              height={48}
               className="h-12 w-auto"
-              loading="lazy"
             />
           </div>
         </div>
@@ -602,7 +671,7 @@ function Footer() {
 // Main Homepage
 export default function HomePage() {
   return (
-    <>
+    <RedirectIfAuthenticated>
       {/* Structured Data for SEO */}
       <StructuredData data={organizationSchema} />
       <StructuredData data={webApplicationSchema} />
@@ -618,6 +687,6 @@ export default function HomePage() {
         <CTA />
         <Footer />
       </main>
-    </>
+    </RedirectIfAuthenticated>
   )
 }
