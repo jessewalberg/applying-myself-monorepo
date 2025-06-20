@@ -17,6 +17,7 @@ import {
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convexApi";
 import { ApplyingMyselfLogo } from "./ApplyingMyselfLogo";
+import { useAuthActions } from "@convex-dev/auth/react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState('');
   const router = useRouter();
+  const { signOut } = useAuthActions();
 
   // Ensure user profile exists and fetch user data
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
@@ -109,7 +111,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const handleSignOut = async () => {
     try {
-      // Sign out logic here
+      await signOut();
       router.push('/login');
     } catch (error) {
       console.error('Sign out failed:', error);
