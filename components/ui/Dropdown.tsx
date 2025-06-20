@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface DropdownOption {
     value: string;
@@ -17,11 +17,29 @@ interface DropdownProps {
 
 export function Dropdown({ options, value, onChange, className = "", placeholder = "Select...", disabled = false }: DropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const selectedOption = options.find(option => option.value === value);
 
+    // Handle click outside to close dropdown
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
     return (
-        <div className={`relative ${className}`}>
+        <div ref={dropdownRef} className={`relative ${className}`}>
             <button
                 type="button"
                 onClick={() => !disabled && setIsOpen(!isOpen)}
