@@ -13,7 +13,9 @@ import {
     BriefcaseIcon,
     ExclamationTriangleIcon,
     CheckCircleIcon,
-    SparklesIcon
+    SparklesIcon,
+    CloudArrowDownIcon,
+    DocumentArrowDownIcon
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convexApi";
@@ -73,6 +75,119 @@ export default function CoverLetterDetailPage() {
         } catch (error) {
             console.error('Failed to copy to clipboard:', error);
             alert('Failed to copy to clipboard');
+        }
+    };
+
+    const handleDownloadDocx = async () => {
+        if (!coverLetter || isGenerating) return;
+
+        try {
+            const { Document, Packer, Paragraph, TextRun } = await import('docx');
+
+            // Create a new document
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: [
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Cover Letter - ${coverLetter.jobTitle || 'Position'}`,
+                                    bold: true,
+                                    size: 32,
+                                }),
+                            ],
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: coverLetter.company ? `${coverLetter.company}` : '',
+                                    bold: true,
+                                    size: 24,
+                                }),
+                            ],
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: `Generated on ${new Date(coverLetter.createdAt || coverLetter._creationTime).toLocaleDateString()}`,
+                                    italics: true,
+                                    size: 20,
+                                }),
+                            ],
+                        }),
+                        new Paragraph({ children: [] }), // Empty paragraph for spacing
+                        ...coverLetter.content.split('\n\n').map(paragraph =>
+                            new Paragraph({
+                                children: [
+                                    new TextRun({
+                                        text: paragraph.trim(),
+                                        size: 24,
+                                    }),
+                                ],
+                            })
+                        ),
+                    ],
+                }],
+            });
+
+            // Generate and download the document
+            const blob = await Packer.toBlob(doc);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Cover_Letter_${coverLetter.company || 'Company'}_${coverLetter.jobTitle || 'Position'}.docx`.replace(/[^a-zA-Z0-9]/g, '_');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to generate DOCX:', error);
+            alert('Failed to generate Word document. Please try again.');
+        }
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!coverLetter || isGenerating) return;
+
+        try {
+            const { jsPDF } = await import('jspdf');
+
+            const pdf = new jsPDF();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const margin = 20;
+            const maxWidth = pageWidth - (margin * 2);
+
+            // Title
+            pdf.setFontSize(16);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`Cover Letter - ${coverLetter.jobTitle || 'Position'}`, margin, 30);
+
+            // Company
+            if (coverLetter.company) {
+                pdf.setFontSize(14);
+                pdf.text(coverLetter.company, margin, 45);
+            }
+
+            // Date
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'italic');
+            pdf.text(`Generated on ${new Date(coverLetter.createdAt || coverLetter._creationTime).toLocaleDateString()}`, margin, coverLetter.company ? 60 : 50);
+
+            // Content
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'normal');
+
+            const startY = coverLetter.company ? 80 : 70;
+            const lines = pdf.splitTextToSize(coverLetter.content, maxWidth);
+            pdf.text(lines, margin, startY);
+
+            // Download
+            const filename = `Cover_Letter_${coverLetter.company || 'Company'}_${coverLetter.jobTitle || 'Position'}.pdf`.replace(/[^a-zA-Z0-9]/g, '_');
+            pdf.save(filename);
+        } catch (error) {
+            console.error('Failed to generate PDF:', error);
+            alert('Failed to generate PDF. Please try again.');
         }
     };
 
@@ -171,13 +286,29 @@ export default function CoverLetterDetailPage() {
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                         {!isGenerating && (
-                            <button
-                                onClick={handleCopyToClipboard}
-                                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
-                            >
-                                <ClipboardDocumentIcon className="w-4 h-4" />
-                                <span>{isCopied ? 'Copied!' : 'Copy Text'}</span>
-                            </button>
+                            <>
+                                <button
+                                    onClick={handleCopyToClipboard}
+                                    className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
+                                >
+                                    <ClipboardDocumentIcon className="w-4 h-4" />
+                                    <span>{isCopied ? 'Copied!' : 'Copy Text'}</span>
+                                </button>
+                                <button
+                                    onClick={handleDownloadDocx}
+                                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
+                                >
+                                    <DocumentArrowDownIcon className="w-4 h-4" />
+                                    <span>DOCX</span>
+                                </button>
+                                <button
+                                    onClick={handleDownloadPdf}
+                                    className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
+                                >
+                                    <CloudArrowDownIcon className="w-4 h-4" />
+                                    <span>PDF</span>
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={handleDelete}
@@ -323,12 +454,30 @@ export default function CoverLetterDetailPage() {
                                 Add Job Application
                             </Link>
                             {!isGenerating && (
-                                <button
-                                    onClick={handleCopyToClipboard}
-                                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 shadow-lg"
-                                >
-                                    {isCopied ? 'Copied to Clipboard!' : 'Copy to Clipboard'}
-                                </button>
+                                <>
+                                    <button
+                                        onClick={handleCopyToClipboard}
+                                        className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-600 transition-all transform hover:scale-105 shadow-lg"
+                                    >
+                                        {isCopied ? 'Copied to Clipboard!' : 'Copy to Clipboard'}
+                                    </button>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={handleDownloadDocx}
+                                            className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-3 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-1 text-sm"
+                                        >
+                                            <DocumentArrowDownIcon className="w-4 h-4" />
+                                            <span>DOCX</span>
+                                        </button>
+                                        <button
+                                            onClick={handleDownloadPdf}
+                                            className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-2 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-600 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-1 text-sm"
+                                        >
+                                            <CloudArrowDownIcon className="w-4 h-4" />
+                                            <span>PDF</span>
+                                        </button>
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>
