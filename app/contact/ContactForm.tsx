@@ -1,11 +1,71 @@
 "use client";
 
+import { useState } from 'react';
+import { useConvex } from "convex/react";
+import { api } from "@/convexApi";
+
 // Contact Form Section
 export function ContactForm() {
-    const handleSubmit = (e: React.FormEvent) => {
+    const convex = useConvex();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        subject: '',
+        message: '',
+        newsletter: false
+    });
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const checked = (e.target as HTMLInputElement).checked;
+
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Handle form submission here
-        alert('Thank you for your message! We&rsquo;ll get back to you soon.');
+        setIsSubmitting(true);
+        setSubmitMessage(null);
+
+        try {
+            const result = await convex.mutation(api.emailResend.submitContactForm, {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                subject: formData.subject,
+                message: formData.message,
+                newsletter: formData.newsletter
+            });
+
+            if (result.success) {
+                setSubmitMessage({ type: 'success', text: result.message });
+                // Reset form
+                setFormData({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    subject: '',
+                    message: '',
+                    newsletter: false
+                });
+            } else {
+                setSubmitMessage({ type: 'error', text: result.message });
+            }
+        } catch (error) {
+            console.error('Contact form error:', error);
+            setSubmitMessage({
+                type: 'error',
+                text: 'Sorry, there was an error sending your message. Please try again or email us directly at support@applyingmyself.com'
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -27,6 +87,15 @@ export function ContactForm() {
                 </div>
 
                 <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-8 md:p-12 shadow-2xl border border-white/20">
+                    {submitMessage && (
+                        <div className={`mb-6 p-4 rounded-lg ${submitMessage.type === 'success'
+                            ? 'bg-green-50 border border-green-200 text-green-800'
+                            : 'bg-red-50 border border-red-200 text-red-800'
+                            }`}>
+                            {submitMessage.text}
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="group">
@@ -38,7 +107,10 @@ export function ContactForm() {
                                     id="firstName"
                                     name="firstName"
                                     required
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70"
+                                    value={formData.firstName}
+                                    onChange={handleInputChange}
+                                    disabled={isSubmitting}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 disabled:opacity-50"
                                     placeholder="Enter your first name"
                                 />
                             </div>
@@ -52,7 +124,10 @@ export function ContactForm() {
                                     id="lastName"
                                     name="lastName"
                                     required
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70"
+                                    value={formData.lastName}
+                                    onChange={handleInputChange}
+                                    disabled={isSubmitting}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 disabled:opacity-50"
                                     placeholder="Enter your last name"
                                 />
                             </div>
@@ -67,7 +142,10 @@ export function ContactForm() {
                                 id="email"
                                 name="email"
                                 required
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70"
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 disabled:opacity-50"
                                 placeholder="Enter your email address"
                             />
                         </div>
@@ -80,7 +158,10 @@ export function ContactForm() {
                                 id="subject"
                                 name="subject"
                                 required
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70"
+                                value={formData.subject}
+                                onChange={handleInputChange}
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 disabled:opacity-50"
                             >
                                 <option value="">Select a subject</option>
                                 <option value="general">General Question</option>
@@ -101,7 +182,10 @@ export function ContactForm() {
                                 name="message"
                                 rows={6}
                                 required
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 resize-none"
+                                value={formData.message}
+                                onChange={handleInputChange}
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 bg-white/50 backdrop-blur-sm group-hover:bg-white/70 resize-none disabled:opacity-50"
                                 placeholder="Tell us how we can help you..."
                             ></textarea>
                         </div>
@@ -111,7 +195,10 @@ export function ContactForm() {
                                 type="checkbox"
                                 id="newsletter"
                                 name="newsletter"
-                                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                                checked={formData.newsletter}
+                                onChange={handleInputChange}
+                                disabled={isSubmitting}
+                                className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50"
                             />
                             <label htmlFor="newsletter" className="ml-2 text-sm text-gray-600">
                                 I&rsquo;d like to receive updates about new features and tips for job searching
@@ -121,13 +208,16 @@ export function ContactForm() {
                         <div className="pt-4">
                             <button
                                 type="submit"
-                                className="group relative w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-2xl hover:shadow-purple-500/25 overflow-hidden"
+                                disabled={isSubmitting}
+                                className="group relative w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-2xl hover:shadow-purple-500/25 overflow-hidden disabled:opacity-50 disabled:transform-none disabled:hover:scale-100 disabled:hover:translate-y-0"
                             >
                                 <span className="relative z-10 flex items-center justify-center">
-                                    Send Message
-                                    <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
+                                    {isSubmitting ? 'Sending...' : 'Send Message'}
+                                    {!isSubmitting && (
+                                        <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                    )}
                                 </span>
                                 <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             </button>

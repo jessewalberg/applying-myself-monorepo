@@ -6,60 +6,73 @@ import { CreditCardIcon, CheckIcon, XMarkIcon, ArrowUpIcon, ExclamationTriangleI
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convexApi";
 
-const plans = [
-  {
-    name: "Starter",
-    price: 9,
-    credits: 50,
-    priceId: "price_1RaGUYGgPDjfnNjHzo4feM7o", // Stripe test price ID - replace with your actual test price
-    features: [
-      "50 Credits per month",
-      "AI-powered cover letter generation",
-      "Resume upload & text extraction",
-      "Job application tracking",
-      "Web job extraction (10/month)",
-      "Basic search & filtering",
-      "Email support"
-    ],
-    recommended: false,
-  },
-  {
-    name: "Pro",
-    price: 19,
-    credits: 150,
-    priceId: "price_1RaGYUGgPDjfnNjHePPZuR8N", // Stripe test price ID - replace with your actual test price
-    features: [
-      "150 Credits per month",
-      "Advanced AI cover letter generation",
-      "Multiple resume management",
-      "Unlimited job application tracking",
-      "Advanced web job extraction",
-      "Enhanced search with filters",
-      "Cover letter customization options",
-      "Application status tracking",
-      "Priority support"
-    ],
-    recommended: true,
-  },
-  {
-    name: "Hired",
-    price: 49,
-    credits: 500,
-    priceId: "price_1RaGZJGgPDjfnNjHjLYWERED", // Stripe test price ID - replace with your actual test price
-    features: [
-      "500 Credits per month",
-      "Premium AI models for cover letters",
-      "Unlimited resume storage",
-      "Bulk job extraction & processing",
-      "Advanced application analytics",
-      "Custom cover letter templates",
-      "Export data capabilities",
-      "API access (future)",
-      "Dedicated support"
-    ],
-    recommended: false,
-  },
-];
+// Price configuration based on environment
+const getPlans = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return [
+    {
+      name: "Starter",
+      price: 9,
+      credits: 50,
+      priceId: isProduction
+        ? "price_1RcW71KCeqW42FQejbXbZFxo" // Production starter price ID
+        : "price_1RaGUYGgPDjfnNjHzo4feM7o", // Test price ID
+      features: [
+        "50 Credits per month",
+        "AI-powered cover letter generation",
+        "Resume upload & text extraction",
+        "Job application tracking",
+        "Web job extraction (10/month)",
+        "Basic search & filtering",
+        "Email support"
+      ],
+      recommended: false,
+    },
+    {
+      name: "Pro",
+      price: 19,
+      credits: 150,
+      priceId: isProduction
+        ? "price_1RcW6wKCeqW42FQeU8qSNGJd" // Production Pro price ID
+        : "price_1RaGYUGgPDjfnNjHePPZuR8N", // Test price ID
+      features: [
+        "150 Credits per month",
+        "Advanced AI cover letter generation",
+        "Multiple resume management",
+        "Unlimited job application tracking",
+        "Advanced web job extraction",
+        "Enhanced search with filters",
+        "Cover letter customization options",
+        "Application status tracking",
+        "Priority support"
+      ],
+      recommended: true,
+    },
+    {
+      name: "Hired",
+      price: 49,
+      credits: 500,
+      priceId: isProduction
+        ? "price_1RcW6uKCeqW42FQeEgUB10tz" // Production Hired price ID
+        : "price_1RaGZJGgPDjfnNjHjLYWERED", // Test price ID
+      features: [
+        "500 Credits per month",
+        "Premium AI models for cover letters",
+        "Unlimited resume storage",
+        "Bulk job extraction & processing",
+        "Advanced application analytics",
+        "Custom cover letter templates",
+        "Export data capabilities",
+        "API access (future)",
+        "Dedicated support"
+      ],
+      recommended: false,
+    },
+  ];
+};
+
+const plans = getPlans();
 
 export default function BillingPage() {
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
