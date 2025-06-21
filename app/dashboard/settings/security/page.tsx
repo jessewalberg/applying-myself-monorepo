@@ -3,7 +3,7 @@
 export default function SecurityPage() {
   return (
     <div className="space-y-6">
-      <div className="card">
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Change Password</h2>
           <p className="text-sm text-gray-600">
@@ -13,38 +13,38 @@ export default function SecurityPage() {
 
         <form className="space-y-4">
           <div>
-            <label className="form-label">Current Password</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Current Password</label>
             <input
               type="password"
-              className="input-field"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
               placeholder="Enter your current password"
             />
           </div>
           <div>
-            <label className="form-label">New Password</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
             <input
               type="password"
-              className="input-field"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
               placeholder="Enter your new password"
             />
           </div>
           <div>
-            <label className="form-label">Confirm New Password</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm New Password</label>
             <input
               type="password"
-              className="input-field"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
               placeholder="Confirm your new password"
             />
           </div>
           <div className="flex justify-end">
-            <button type="submit" className="btn-primary">
+            <button type="submit" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg">
               Update Password
             </button>
           </div>
         </form>
       </div>
 
-      <div className="card">
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Two-Factor Authentication</h2>
           <p className="text-sm text-gray-600">
@@ -57,13 +57,13 @@ export default function SecurityPage() {
             <h3 className="text-sm font-medium text-gray-900">Enable 2FA</h3>
             <p className="text-sm text-gray-500">Use an authenticator app for additional security</p>
           </div>
-          <button className="btn-secondary">
+          <button className="bg-white text-gray-700 px-6 py-3 rounded-lg font-semibold border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all">
             Enable 2FA
           </button>
         </div>
       </div>
 
-      <div className="card">
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Account Activity</h2>
           <p className="text-sm text-gray-600">
@@ -86,4 +86,4 @@ export default function SecurityPage() {
       </div>
     </div>
   );
-} 
+}

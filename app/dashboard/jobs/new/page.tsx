@@ -1,21 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { useConvexAuth, useMutation } from "convex/react";
+import { api } from "@/convexApi";
 
-type StatusType = "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
-
-export default function NewJobApplicationPage() {
+export default function NewJobPage() {
   const router = useRouter();
+  const { isAuthenticated } = useConvexAuth();
+  const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      ensureUserProfile({});
+    }
+  }, [isAuthenticated, ensureUserProfile]);
+
   const [formData, setFormData] = useState({
     jobTitle: "",
     companyName: "",
+    jobUrl: "",
     location: "",
     salary: "",
-    status: "applied" as StatusType,
-    jobUrl: "",
+    jobType: "full-time",
+    status: "applied",
+    appliedDate: "",
     notes: "",
   });
 
@@ -28,13 +39,11 @@ export default function NewJobApplicationPage() {
     e.preventDefault();
     
     try {
-      // TODO: Create new job application with Convex
-      console.log("Creating job:", formData);
-      
-      // Redirect back to jobs list
+      // TODO: Implement job application creation with Convex
+      console.log("Creating job application:", formData);
       router.push("/dashboard/jobs");
     } catch (error) {
-      console.error("Error creating job:", error);
+      console.error("Error creating job application:", error);
     }
   };
 
@@ -43,43 +52,43 @@ export default function NewJobApplicationPage() {
       <div className="mb-8">
         <Link
           href="/dashboard/jobs"
-          className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           <span>Back to Job Applications</span>
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Add Job Application</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Track a new job application to stay organized.
+          Track a new job application in your pipeline.
         </p>
       </div>
 
       <div className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="card">
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="form-label">Job Title *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Job Title *</label>
                 <input
                   type="text"
                   name="jobTitle"
                   value={formData.jobTitle}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., Software Engineer"
                   required
                 />
               </div>
               <div>
-                <label className="form-label">Company Name *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name *</label>
                 <input
                   type="text"
                   name="companyName"
                   value={formData.companyName}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., Google"
                   required
                 />
@@ -88,37 +97,65 @@ export default function NewJobApplicationPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="form-label">Location</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
                 <input
                   type="text"
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  className="input-field"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., San Francisco, CA"
                 />
               </div>
               <div>
-                <label className="form-label">Salary Range</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Salary Range</label>
                 <input
                   type="text"
                   name="salary"
                   value={formData.salary}
                   onChange={handleInputChange}
-                  className="input-field"
-                  placeholder="e.g., $120,000 - $150,000"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+                  placeholder="e.g., $100k - $150k"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Job Type</label>
+                <select
+                  name="jobType"
+                  value={formData.jobType}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+                >
+                  <option value="full-time">Full-time</option>
+                  <option value="part-time">Part-time</option>
+                  <option value="contract">Contract</option>
+                  <option value="internship">Internship</option>
+                  <option value="freelance">Freelance</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Applied Date</label>
+                <input
+                  type="date"
+                  name="appliedDate"
+                  value={formData.appliedDate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="form-label">Job URL</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Job URL</label>
               <input
                 type="url"
                 name="jobUrl"
                 value={formData.jobUrl}
                 onChange={handleInputChange}
-                className="input-field"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                 placeholder="https://..."
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -127,16 +164,16 @@ export default function NewJobApplicationPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Application Details</h2>
             
             <div className="mb-4">
-              <label className="form-label">Application Status</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Application Status</label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="input-field"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
               >
                 <option value="applied">Applied</option>
                 <option value="interviewing">Interviewing</option>
@@ -147,13 +184,13 @@ export default function NewJobApplicationPage() {
             </div>
 
             <div>
-              <label className="form-label">Notes</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
               <textarea
                 name="notes"
                 value={formData.notes}
                 onChange={handleInputChange}
                 rows={4}
-                className="input-field"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                 placeholder="Any notes about this application, interview details, contacts, etc..."
               />
             </div>
@@ -162,13 +199,13 @@ export default function NewJobApplicationPage() {
           <div className="flex items-center justify-end space-x-3">
             <Link
               href="/dashboard/jobs"
-              className="btn-secondary"
+              className="bg-white text-gray-700 px-6 py-3 rounded-lg font-semibold border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              className="btn-primary"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
               disabled={!formData.jobTitle || !formData.companyName}
             >
               Add Application
@@ -178,4 +215,4 @@ export default function NewJobApplicationPage() {
       </div>
     </div>
   );
-} 
+}

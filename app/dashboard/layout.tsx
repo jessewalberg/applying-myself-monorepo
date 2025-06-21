@@ -1,5 +1,6 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DashboardLayout } from "@/components/DashboardLayout";
+import DashboardLayout from "@/components/DashboardLayout";
+import { NavigationProvider } from "@/components/NavigationProvider";
 
 export default function DashboardLayoutPage({
   children,
@@ -8,9 +9,11 @@ export default function DashboardLayoutPage({
 }) {
   return (
     <ProtectedRoute>
-      <DashboardLayout>
-        {children}
-      </DashboardLayout>
+      <NavigationProvider>
+        <DashboardLayout>
+          {children}
+        </DashboardLayout>
+      </NavigationProvider>
     </ProtectedRoute>
   );
 } 
