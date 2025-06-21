@@ -1038,7 +1038,7 @@ export type PublicApiType = {
       any
     >;
     submitContactForm: FunctionReference<
-      "mutation",
+      "action",
       "public",
       {
         email: string;

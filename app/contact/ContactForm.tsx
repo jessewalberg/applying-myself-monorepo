@@ -34,7 +34,7 @@ export function ContactForm() {
         setSubmitMessage(null);
 
         try {
-            const result = await convex.mutation(api.emailResend.submitContactForm, {
+            const result = await convex.action(api.emailResend.submitContactForm, {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 email: formData.email,
