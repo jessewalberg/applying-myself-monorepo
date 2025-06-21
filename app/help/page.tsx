@@ -166,45 +166,45 @@ export default function HelpPage() {
                     {/* Chrome Extension Section */}
                     <div className="card mb-8">
                         <div className="flex items-center mb-4">
-                            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-4">
+                            <div className="w-10 h-10 bg-gray-400 rounded-lg flex items-center justify-center mr-4">
                                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
                             <div>
-                                <h3 className="text-lg font-medium text-gray-900">Chrome Extension - Skip the Copy & Paste!</h3>
-                                <p className="text-sm text-gray-600">Automatically extract job details from any job board</p>
+                                <h3 className="text-lg font-medium text-gray-900">Chrome Extension (Coming Soon)</h3>
+                                <p className="text-sm text-gray-600">One-click job extraction will be available soon</p>
                             </div>
                         </div>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                            <p className="text-sm text-green-800 mb-3">
-                                <strong>Pro Tip:</strong> Instead of manually copying and pasting job descriptions, use our Chrome extension to automatically extract job details from LinkedIn, Indeed, Glassdoor, and other job boards with just one click!
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-gray-700 mb-3">
+                                <strong>Coming Soon:</strong> Our Chrome extension is currently under review and will be available soon! In the meantime, you can manually copy and paste job descriptions from LinkedIn, Indeed, Glassdoor, and other job boards.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                                <div className="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-600 text-sm font-medium rounded-lg cursor-not-allowed">
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Install Chrome Extension
-                                </a>
+                                    Chrome Extension Coming Soon
+                                </div>
                                 <span className="text-xs text-gray-500 flex items-center">
-                                    Works with LinkedIn, Indeed, Glassdoor & more
+                                    Will work with LinkedIn, Indeed, Glassdoor & more
                                 </span>
                             </div>
                         </div>
                         <div className="grid sm:grid-cols-2 gap-4 text-sm">
                             <div className="flex items-start">
-                                <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs mr-3 mt-0.5">✓</div>
+                                <div className="w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center font-bold text-xs mr-3 mt-0.5">⏳</div>
                                 <div>
-                                    <h4 className="font-semibold text-gray-900 mb-1">One-Click Extraction</h4>
-                                    <p className="text-gray-600 text-xs">Click the extension icon on any job posting to automatically extract company, role, and job description</p>
+                                    <h4 className="font-semibold text-gray-900 mb-1">One-Click Extraction (Soon)</h4>
+                                    <p className="text-gray-600 text-xs">Soon you&rsquo;ll be able to click the extension icon on any job posting to automatically extract details</p>
                                 </div>
                             </div>
                             <div className="flex items-start">
-                                <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs mr-3 mt-0.5">✓</div>
+                                <div className="w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center font-bold text-xs mr-3 mt-0.5">⏳</div>
                                 <div>
-                                    <h4 className="font-semibold text-gray-900 mb-1">Instant Sync</h4>
-                                    <p className="text-gray-600 text-xs">Extracted job details are automatically saved to your dashboard for cover letter generation</p>
+                                    <h4 className="font-semibold text-gray-900 mb-1">Instant Sync (Soon)</h4>
+                                    <p className="text-gray-600 text-xs">Extracted job details will automatically sync to your dashboard for cover letter generation</p>
                                 </div>
                             </div>
                         </div>
@@ -235,7 +235,7 @@ export default function HelpPage() {
                                     <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm mr-4 mt-1 flex-shrink-0">3</div>
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-900 mb-1">Add Job Information</h4>
-                                        <p className="text-gray-600 text-xs">Use our Chrome extension to automatically extract job details from job boards, or manually paste the job description. Our AI will analyze the requirements and tailor your cover letter accordingly.</p>
+                                        <p className="text-gray-600 text-xs">Copy and paste the job description from job boards like LinkedIn or Indeed. Our AI will analyze the requirements and tailor your cover letter accordingly.</p>
                                     </div>
                                 </div>
 
@@ -319,7 +319,7 @@ export default function HelpPage() {
                             <div className="space-y-4">
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900 mb-2">What job sites do you support?</h4>
-                                    <p className="text-gray-600 text-xs">Our Chrome extension works with LinkedIn, Indeed, Glassdoor, and most major job boards. You can also manually paste job descriptions.</p>
+                                    <p className="text-gray-600 text-xs">You can copy job descriptions from LinkedIn, Indeed, Glassdoor, and any job board. Our Chrome extension (coming soon) will automate this process.</p>
                                 </div>
 
                                 <div>
@@ -334,7 +334,7 @@ export default function HelpPage() {
 
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900 mb-2">How do I install the Chrome extension?</h4>
-                                    <p className="text-gray-600 text-xs">Visit the Chrome Web Store, search for &ldquo;Applying Myself&rdquo;, and click &ldquo;Add to Chrome&rdquo;. The extension will appear in your browser toolbar.</p>
+                                    <p className="text-gray-600 text-xs">Our Chrome extension is currently under review and will be available soon. We&rsquo;ll notify all users when it&rsquo;s ready for download.</p>
                                 </div>
                             </div>
                         </div>
