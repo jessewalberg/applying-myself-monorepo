@@ -4,28 +4,68 @@ import { api } from "@/convexApi";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the auth token directly from cookies
-    const authToken = request.cookies.get('convex-auth-token')?.value;
+    // Debug: Log all cookies
+    console.log('🔍 All cookies received:', Object.fromEntries(request.cookies.getAll().map(c => [c.name, c.value.substring(0, 20) + '...'])));
+
+    // Get the auth token directly from cookies - try multiple possible names
+    let authToken = request.cookies.get('convex-auth-token')?.value;
 
     if (!authToken) {
-      return Response.json({
+      // Try alternative cookie names that Convex Auth might use
+      authToken = request.cookies.get('__convex_auth_token')?.value ||
+        request.cookies.get('convex_auth_token')?.value ||
+        request.cookies.get('authToken')?.value;
+    }
+
+    console.log('🔍 Auth token found:', authToken ? 'Yes' : 'No');
+
+    if (!authToken) {
+      const response = Response.json({
         success: false,
-        error: "Not authenticated"
+        error: "Not authenticated",
+        debug: {
+          cookieCount: request.cookies.getAll().length,
+          cookieNames: request.cookies.getAll().map(c => c.name)
+        }
       }, { status: 401 });
+
+      // Add CORS headers
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+
+      return response;
     }
 
     // Just pass the token directly to the extension
-    return Response.json({
+    const response = Response.json({
       success: true,
       token: authToken
     });
 
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+
+    return response;
+
   } catch (error) {
     console.error("Token sharing error:", error);
-    return Response.json({
+    const response = Response.json({
       success: false,
       error: "Token sharing failed"
     }, { status: 500 });
+
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+
+    return response;
   }
 }
 
@@ -149,4 +189,14 @@ export async function POST(request: NextRequest) {
       error: "Failed to process request"
     }, { status: 500 });
   }
+}
+
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  return response;
 }
