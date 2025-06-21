@@ -80,7 +80,7 @@ export const webApplicationSchema = {
         "Resume upload and processing",
         "Application tracking",
         "Multiple resume management",
-        "Chrome extension"
+        "Chrome extension (coming soon)"
     ],
     "screenshot": "https://applyingmyself.com/screenshots/dashboard.png"
 };

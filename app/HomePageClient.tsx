@@ -173,15 +173,12 @@ function Hero() {
                             <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </Link>
 
-                        <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener noreferrer"
-                            className="group relative bg-white/80 backdrop-blur-sm text-gray-700 px-10 py-5 rounded-xl text-lg font-semibold border-2 border-gray-200/50 hover:border-blue-300 hover:bg-white/90 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-xl hover:shadow-2xl min-w-[220px]">
+                        <div className="group relative bg-gray-100 text-gray-500 px-10 py-5 rounded-xl text-lg font-semibold min-w-[220px] cursor-not-allowed opacity-60">
                             <span className="flex items-center justify-center">
-                                Install Extension
-                                <svg className="w-5 h-5 ml-2 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
+                                Chrome Extension
+                                <span className="ml-2 text-sm bg-gray-200 text-gray-600 px-2 py-1 rounded-full">Coming Soon</span>
                             </span>
-                        </a>
+                        </div>
                     </div>
 
                     {/* Floating Stats */}
@@ -332,7 +329,7 @@ function Features() {
         {
             icon: "🌐",
             title: "One-Click Job Extraction",
-            description: "Install our Chrome extension and extract job details from any job site with one click. No more copy-pasting job descriptions."
+            description: "Our Chrome extension (coming soon) will extract job details from any job site with one click. For now, you can manually paste job descriptions."
         },
         {
             icon: "📋",
@@ -465,6 +462,7 @@ function Pricing() {
                 "Advanced AI cover letters",
                 "Unlimited job extraction",
                 "Multiple resume management",
+                "Chrome extension access",
                 "Advanced application tracking",
                 "Priority support"
             ],
@@ -479,6 +477,7 @@ function Pricing() {
                 "500 credits per month",
                 "Premium AI models",
                 "Bulk job processing",
+                "Chrome extension access",
                 "Advanced analytics",
                 "Export capabilities",
                 "Dedicated support"
