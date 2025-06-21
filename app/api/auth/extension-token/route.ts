@@ -2,139 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convexApi";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Debug: Log all cookies
-    console.log('🔍 All cookies received:', Object.fromEntries(request.cookies.getAll().map(c => [c.name, c.value.substring(0, 20) + '...'])));
+    console.log('🔍 Extension token sync request received');
 
-    // Get the auth token directly from cookies - try multiple possible names
-    let authToken = request.cookies.get('convex-auth-token')?.value;
+    // Since Convex Auth doesn't use cookies, we need to check if there's a way
+    // to access the current auth state from the server side.
+    // For now, return an error explaining the limitation
 
-    if (!authToken) {
-      // Try alternative cookie names that Convex Auth might use
-      authToken = request.cookies.get('__convex_auth_token')?.value ||
-        request.cookies.get('convex_auth_token')?.value ||
-        request.cookies.get('authToken')?.value;
-    }
-
-    console.log('🔍 Auth token found:', authToken ? 'Yes' : 'No');
-
-    if (!authToken) {
-      const response = Response.json({
-        success: false,
-        error: "Not authenticated",
-        debug: {
-          cookieCount: request.cookies.getAll().length,
-          cookieNames: request.cookies.getAll().map(c => c.name)
-        }
-      }, { status: 401 });
-
-      // Add CORS headers
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-      response.headers.set('Access-Control-Allow-Credentials', 'true');
-
-      return response;
-    }
-
-    // Just pass the token directly to the extension
-    const response = Response.json({
-      success: true,
-      token: authToken
-    });
-
-    // Add CORS headers
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-
-    return response;
+    return Response.json({
+      success: false,
+      error: "Server-side token access not available",
+      message: "Convex Auth stores tokens in browser localStorage, which Chrome extensions cannot access. Please use Google Sign-In in the extension instead.",
+      suggestion: "Use the Google Sign-In button in the extension to authenticate directly."
+    }, { status: 401 });
 
   } catch (error) {
-    console.error("Token sharing error:", error);
-    const response = Response.json({
+    console.error("Extension token sync error:", error);
+    return Response.json({
       success: false,
-      error: "Token sharing failed"
+      error: "Failed to sync token"
     }, { status: 500 });
-
-    // Add CORS headers
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-
-    return response;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, googleToken } = body;
-
-    // Handle Google token exchange from Chrome extension
-    if (googleToken) {
-      console.log("🔐 Processing Google token from Chrome extension...");
-
-      // Validate Google token
-      const googleResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${googleToken}`);
-      if (!googleResponse.ok) {
-        return Response.json({
-          success: false,
-          error: "Invalid Google token"
-        }, { status: 401 });
-      }
-
-      const googleUser = await googleResponse.json();
-      if (!googleUser.email || !googleUser.verified_email) {
-        return Response.json({
-          success: false,
-          error: "Google account email not verified"
-        }, { status: 401 });
-      }
-
-      // Create Convex client and try to authenticate
-      const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-      try {
-        // Use Convex Auth to sign in with Google
-        const authResult = await client.action(api.auth.signIn, {
-          provider: "google",
-          params: {
-            email: googleUser.email,
-            name: googleUser.name || googleUser.email.split('@')[0],
-            picture: googleUser.picture,
-            id: googleUser.id,
-          },
-        });
-
-        if (authResult?.tokens?.token) {
-          console.log('✅ Google auth successful for extension user:', googleUser.email);
-
-          return Response.json({
-            success: true,
-            token: authResult.tokens.token,
-            user: {
-              email: googleUser.email,
-              name: googleUser.name,
-              picture: googleUser.picture,
-            }
-          });
-        }
-      } catch (convexError) {
-        console.log('Convex Google auth failed, trying manual approach:', convexError);
-      }
-
-      // If Convex Auth fails, return error directing to web app
-      return Response.json({
-        success: false,
-        error: "Please sign in at the web app first, then the extension will sync automatically.",
-        requiresWebApp: true,
-        webAppUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://applyingmyself.com"
-      }, { status: 400 });
-    }
+    const { token } = body;
 
     // Handle regular token validation (existing functionality)
     if (!token) {
