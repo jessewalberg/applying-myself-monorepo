@@ -47,7 +47,7 @@
 - 💼 **Job Description Integration** - Paste any job posting for targeted applications
 - 📊 **Application Tracking** - Monitor your job applications and success rate
 - 💳 **Flexible Billing** - Pay-per-use or subscription plans
-- 🔐 **Secure Authentication** - Google OAuth and email verification
+- 🔐 **Secure Authentication** - Email-based authentication and verification
 - 📱 **Chrome Extension** - Apply directly from job boards
 - 🎯 **Success Analytics** - Track your application performance
 
@@ -70,7 +70,7 @@
 
 ### AI & APIs
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=flat&logo=openai&logoColor=white)
-![Google OAuth](https://img.shields.io/badge/Google_OAuth-4285F4?style=flat&logo=google&logoColor=white)
+![Email Auth](https://img.shields.io/badge/Email_Auth-4285F4?style=flat&logo=mail&logoColor=white)
 ![Resend Email](https://img.shields.io/badge/Resend-000000?style=flat&logoColor=white)
 
 </div>
@@ -103,9 +103,8 @@ CONVEX_DEPLOY_KEY=your-convex-deploy-key
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_ENVIRONMENT=development
 
-# 🔐 Google OAuth
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+# 🔐 Authentication
+# Email authentication handled by Convex
 
 # 💳 Stripe (Test Mode)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -196,7 +195,6 @@ This project supports three environments with complete isolation:
 graph TB
     A[Next.js Frontend] --> B[Convex Backend]
     A --> C[Stripe Payments]
-    A --> D[Google OAuth]
     A --> E[Resend Email]
     B --> F[OpenAI API]
     B --> G[Real-time Database]
@@ -205,7 +203,7 @@ graph TB
 ```
 
 ### 🔄 Data Flow
-1. **User Authentication** → Google OAuth → Convex Auth
+1. **User Authentication** → Email Verification → Convex Auth
 2. **Resume Upload** → File Processing → AI Analysis  
 3. **Job Description** → Content Analysis → AI Matching
 4. **Cover Letter Generation** → OpenAI API → Personalized Output
@@ -243,7 +241,7 @@ graph TB
 - 🎯 **SEO optimized** with metadata
 
 ### Security Features
-- 🔐 **OAuth 2.0** authentication
+- 🔐 **Email-based** authentication
 - 🛡️ **CSRF protection**
 - 🔒 **Environment variable validation**
 - 🚫 **Rate limiting**
@@ -267,7 +265,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 - 📋 [API Documentation](docs/API.md)
 - 🔧 [Environment Setup Guide](../DEV_STAGING_SETUP.md)
-- 🔐 [OAuth Configuration](../GOOGLE_OAUTH_SETUP.md)
+- 🔐 [Authentication Setup](../DEV_STAGING_SETUP.md)
 - 💳 [Stripe Integration](../STRIPE_TESTING_GUIDE.md)
 - 🔌 [Chrome Extension](../applying-myself-chrome-extension/README.md)
 
