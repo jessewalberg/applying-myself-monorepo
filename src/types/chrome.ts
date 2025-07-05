@@ -51,7 +51,10 @@ declare global {
         addListener(callback: (message: ChromeMessage, sender: any) => void): void;
         removeListener(callback: (message: ChromeMessage, sender: any) => void): void;
       };
+      lastError?: { message: string };
     }
+
+
   }
 }
 

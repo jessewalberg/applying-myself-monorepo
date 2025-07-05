@@ -51,13 +51,13 @@ class BackgroundService {
 
   private setupContextMenus(): void {
     chrome.contextMenus.create({
-      id: 'covercraft-extract',
-      title: 'Extract content with CoverCraft',
+      id: 'applying-myself-extract',
+      title: 'Extract content with Applying Myself',
       contexts: ['page']
     });
 
     chrome.contextMenus.onClicked.addListener((info, tab) => {
-      if (info.menuItemId === 'covercraft-extract') {
+      if (info.menuItemId === 'applying-myself-extract') {
         // Send message to content script to extract
         if (tab?.id) {
           chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_CONTENT' });

@@ -5,7 +5,7 @@ export interface User {
     email: string;
     name: string;
     credits: number;
-    plan: 'free' | 'starter' | 'pro' | 'enterprise';
+    plan: 'none' | 'starter' | 'pro' | 'hired';
     createdAt?: string;
     updatedAt?: string;
 }
@@ -46,6 +46,45 @@ export interface CoverLetter {
     creditsUsed: number;
     preferences: string | null;
     createdAt: string;
+}
+
+export interface JobApplication {
+    _id: string;
+    _creationTime: number;
+    userProfileId: string;
+    jobTitle: string;
+    companyName: string;
+    location?: string;
+    salary?: string;
+    status?: "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
+    appliedDate?: number;
+    notes?: string;
+    jobUrl?: string;
+    jobType?: "full-time" | "part-time" | "contract" | "internship" | "freelance";
+    resumeId?: string;
+    coverLetterId?: string;
+}
+
+export interface ExtractedJob {
+    _creationTime: number;
+    _id: string;
+    benefits?: Array<string>;
+    company?: string;
+    confidence?: number;
+    description?: string;
+    experience?: string;
+    extractedAt: number;
+    industry?: string;
+    jobType?: string;
+    location?: string;
+    pageType?: string;
+    remote?: string;
+    requirements?: Array<string>;
+    salary?: string;
+    skills?: Array<string>;
+    title?: string;
+    url: string;
+    userProfileId: string;
 }
 
 export interface Pagination {
@@ -130,8 +169,8 @@ export interface PageMetadata {
     structuredData: any[];
     metaTags: Record<string, string>;
     openGraph: Record<string, string>;
-    headings: Array<{level: number, text: string}>;
-    mainContent: Array<{selector: string, text: string}>;
+    headings: Array<{ level: number, text: string }>;
+    mainContent: Array<{ selector: string, text: string }>;
     timestamp: string;
 }
 

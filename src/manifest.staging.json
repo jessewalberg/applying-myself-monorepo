@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Applying Myself - Development",
+    "name": "Applying Myself - Staging",
     "version": "1.0.0",
-    "description": "AI-powered cover letter generator (Development Build)",
+    "description": "AI-powered cover letter generator (Staging Build)",
     "permissions": [
         "activeTab",
         "storage",
@@ -10,13 +10,12 @@
         "contextMenus"
     ],
     "host_permissions": [
-        "https://dazzling-badger-1.convex.cloud/*",
         "https://*.convex.cloud/*",
         "https://dev.applyingmyself.com/*"
     ],
     "action": {
         "default_popup": "popup.html",
-        "default_title": "Applying Myself (Dev)",
+        "default_title": "Applying Myself (Staging)",
         "default_icon": {
             "16": "icons/icon16.png",
             "32": "icons/icon32.png",

@@ -1,4 +1,3 @@
 {
-    "deployment": "dazzling-badger-1",
-    "functions": "../convex/"
+  "deployment": "dev:dazzling-badger-1"
 }

@@ -7,6 +7,10 @@ const webpack = require('webpack');
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
   const isDevelopment = !isProduction;
+  
+  // Get environment from command line or default to development
+  const environment = env?.environment || (isProduction ? 'production' : 'development');
+  console.log(`🔧 Building Chrome Extension for: ${environment}`);
 
   return {
     entry: {
@@ -35,7 +39,7 @@ module.exports = (env, argv) => {
         {
           test: /\.css$/,
           use: [
-            isDevelopment ? 'style-loader' : MiniCssExtractPlugin.loader,
+            MiniCssExtractPlugin.loader,
             'css-loader'
           ]
         }
@@ -43,8 +47,8 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new webpack.DefinePlugin({
-        'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
-        'process.env.CONVEX_URL': JSON.stringify('https://dazzling-badger-1.convex.cloud')
+        'process.env.NODE_ENV': JSON.stringify(environment),
+        'process.env.BUILD_ENV': JSON.stringify(environment)
       }),
       new HtmlWebpackPlugin({
         template: './src/popup/popup.html',
@@ -59,12 +63,12 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           { 
-            from: isDevelopment ? './src/manifest.dev.json' : './src/manifest.prod.json',
+            from: `./src/manifest.${environment === 'development' ? 'dev' : environment === 'production' ? 'prod' : environment}.json`,
             to: 'manifest.json',
             transform: (content) => {
               const manifest = JSON.parse(content.toString());
               
-              if (isDevelopment) {
+              if (environment === 'development') {
                 // Add reload script for development
                 manifest.content_scripts = manifest.content_scripts || [];
                 manifest.content_scripts.push({
@@ -85,14 +89,17 @@ module.exports = (env, argv) => {
           { from: './src/icons', to: 'icons', noErrorOnMissing: true }
         ]
       }),
-      ...(isProduction ? [new MiniCssExtractPlugin()] : [])
+      new MiniCssExtractPlugin({
+        filename: '[name].css'
+      })
     ],
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
       alias: {
         '@': path.resolve(__dirname, 'src'),
         '@/types': path.resolve(__dirname, 'src/types'),
-        '@/components': path.resolve(__dirname, 'src/popup/components'),
+        '@/components': path.resolve(__dirname, 'src/components'),
+        '@/popup-components': path.resolve(__dirname, 'src/popup/components'),
         '@/services': path.resolve(__dirname, 'src/services'),
         '@/utils': path.resolve(__dirname, 'src/utils'),
         '@/config': path.resolve(__dirname, 'src/config')

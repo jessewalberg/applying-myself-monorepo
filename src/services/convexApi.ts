@@ -1,13 +1,13 @@
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { api } from "../../convexApi"
+import { type GenericId as Id } from "convex/values";
 import CONFIG from '@/config';
 import { StorageService } from './storage';
-import type { 
-  User, 
-  Resume, 
-  CoverLetter, 
-  AuthResponse, 
+import type {
+  User,
+  Resume,
+  CoverLetter,
+  AuthResponse,
   GenerateCoverLetterFromContentRequest,
   GenerateCoverLetterResponse,
   ExtractedContent
@@ -48,12 +48,40 @@ export interface JobData {
 type CoverLetterTone = "professional" | "casual" | "enthusiastic";
 type CoverLetterLength = "short" | "medium" | "long";
 
+// Manual type definitions since we don't have generated schema
+interface ConvexResumeDoc {
+  _id: Id<"resumes">;
+  _creationTime: number;
+  userProfileId: Id<"userProfiles">;
+  filename: string;
+  fileId: Id<"_storage">;
+  fileSize: number;
+  mimeType: string;
+  extractedText?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface ConvexCoverLetterDoc {
+  _id: Id<"coverLetters">;
+  _creationTime: number;
+  userProfileId: Id<"userProfiles">;
+  resumeId: Id<"resumes">;
+  extractedJobId?: Id<"extractedJobs">;
+  jobTitle?: string;
+  company?: string;
+  content: string;
+  creditsUsed: number;
+  preferences?: any;
+}
+
 export class ConvexApiService {
   private static instance: ConvexApiService;
   private authToken: string | null = null;
 
   private constructor() {
-    this.initializeAuth();
+    // Initialize auth will be called explicitly when needed
+    // to avoid async constructor issues
   }
 
   private safeISOString(timestamp: number): string {
@@ -74,15 +102,64 @@ export class ConvexApiService {
     return ConvexApiService.instance;
   }
 
+  // Initialize authentication from storage (call this explicitly when needed)
+  public async initializeFromStorage(): Promise<boolean> {
+    try {
+      const token = await StorageService.getToken();
+      if (token) {
+        this.setAuth(token);
+        // Validate the token
+        const isValid = await this.validateToken();
+        if (isValid) {
+          if (CONFIG.ENVIRONMENT === 'development') {
+            console.log('🔐 Authentication restored from storage');
+          }
+          return true;
+        }
+      }
+
+      // Web app sync is not supported with Convex Auth (uses localStorage)
+      // Users must authenticate directly in the extension
+      if (CONFIG.ENVIRONMENT === 'development') {
+        console.log('🔐 No valid token found - direct authentication required');
+      }
+
+      return false;
+    } catch (error) {
+      if (CONFIG.ENVIRONMENT === 'development') {
+        console.log('🔐 Failed to initialize from storage:', error);
+      }
+      return false;
+    }
+  }
+
+  // Sync authentication token from web app
+  private async syncTokenFromWebApp(): Promise<string | null> {
+    // Convex Auth stores tokens in localStorage, which Chrome extensions cannot access
+    // due to security restrictions. Direct authentication is required.
+    if (CONFIG.ENVIRONMENT === 'development') {
+      console.log('🔄 Web app sync not supported - Convex Auth uses localStorage');
+    }
+    return null;
+  }
+
+  // Manual sync method that can be called by the UI
+  public async syncWithWebApp(): Promise<{ success: boolean; user?: any; error?: string }> {
+    return {
+      success: false,
+      error: 'Session sync not supported. Convex Auth stores tokens in browser localStorage, which Chrome extensions cannot access. Please use Google Sign-In in the extension instead.'
+    };
+  }
+
   private async initializeAuth(): Promise<void> {
     try {
       const token = await StorageService.getToken();
       const userData = await StorageService.getUserData();
-      
+
       if (token && userData?.id) {
         this.authToken = token;
         client.setAuth(token);
-        
+
         // Validate the stored token
         const isValid = await this.validateToken();
         if (!isValid) {
@@ -91,7 +168,7 @@ export class ConvexApiService {
           }
           return;
         }
-        
+
         // Log authentication status in development
         if (CONFIG.ENVIRONMENT === 'development') {
           console.log('🔐 Convex client initialized with user:', userData.email);
@@ -124,14 +201,14 @@ export class ConvexApiService {
   // Validate current token by making a test API call
   async validateToken(): Promise<boolean> {
     if (!this.authToken) return false;
-    
+
     try {
       await client.query(api.userHelpers.getUserProfile);
       return true;
     } catch (error) {
-      if (error instanceof Error && 
-          (error.message?.includes("Unauthenticated") || 
-           error.message?.includes("Could not verify token claim"))) {
+      if (error instanceof Error &&
+        (error.message?.includes("Unauthenticated") ||
+          error.message?.includes("Could not verify token claim"))) {
         this.clearAuth();
         await StorageService.clearAll();
         return false;
@@ -146,7 +223,7 @@ export class ConvexApiService {
     try {
       // Clear any existing invalid auth first
       this.clearAuth();
-      
+
       const result = await client.action(api.auth.signIn, {
         provider: "password",
         params: {
@@ -155,41 +232,74 @@ export class ConvexApiService {
           flow: "signIn",
         },
       });
-      
+
       // Handle the actual response structure from Convex Auth
       const token = result?.value?.tokens?.token || result?.tokens?.token;
       if (token) {
         this.setAuth(token);
-        
+
         // Store credentials for persistence
         await StorageService.setToken(token);
-        
+
         // Ensure user profile exists
         await this.ensureUserProfile();
-        
+
         return { success: true, token };
       }
-      
+
       return { success: false, error: "Sign in failed" };
     } catch (error: unknown) {
       console.error("Sign in error:", error);
-      
+
       // Clear auth on sign in failure
       this.clearAuth();
-      
-      // Handle specific Convex Auth errors
-      if (error instanceof Error && 
-          (error.message?.includes("Unauthenticated") || 
-           error.message?.includes("Could not verify token claim"))) {
-        return { 
-          success: false, 
-          error: "Invalid credentials or session expired. Please try again."
-        };
+
+      // Handle specific Convex Auth errors with user-friendly messages
+      if (error instanceof Error) {
+        if (error.message?.includes("Unauthenticated") ||
+          error.message?.includes("Could not verify token claim")) {
+          return {
+            success: false,
+            error: "Invalid credentials or session expired. Please try again."
+          };
+        }
+
+        if (error.message?.includes("Could not send verification email")) {
+          return {
+            success: false,
+            error: "Invalid email or password. Please check your credentials and try again."
+          };
+        }
+
+        if (error.message?.includes("Invalid credentials") ||
+          error.message?.includes("wrong password") ||
+          error.message?.includes("incorrect password")) {
+          return {
+            success: false,
+            error: "Invalid email or password. Please check your credentials and try again."
+          };
+        }
+
+        if (error.message?.includes("User not found") ||
+          error.message?.includes("No user found")) {
+          return {
+            success: false,
+            error: "No account found with this email address. Please check your email or sign up for a new account."
+          };
+        }
+
+        if (error.message?.includes("verification") ||
+          error.message?.includes("verify")) {
+          return {
+            success: false,
+            error: "Your email address needs to be verified. Please check your email for a verification code or sign up again."
+          };
+        }
       }
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Sign in failed"
+
+      return {
+        success: false,
+        error: "Sign in failed. Please check your email and password and try again."
       };
     }
   }
@@ -205,27 +315,27 @@ export class ConvexApiService {
           flow: "signUp",
         },
       });
-      
+
       // Handle the actual response structure from Convex Auth
       const token = result?.value?.tokens?.token || result?.tokens?.token;
       if (token) {
         this.setAuth(token);
-        
+
         // Create user profile
         await client.mutation(api.userHelpers.createUserProfile, {
           email: credentials.email,
           name: credentials.name,
         });
-        
+
         return { success: true, token };
       }
-      
+
       return { success: false, error: "Sign up failed" };
     } catch (error: unknown) {
       console.error("Sign up error:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Sign up failed" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Sign up failed"
       };
     }
   }
@@ -247,8 +357,10 @@ export class ConvexApiService {
   async ensureUserProfile() {
     try {
       if (!this.authToken) return;
-      
-      await client.mutation(api.userHelpers.ensureUserProfile);
+
+      await client.mutation(api.userHelpers.ensureUserProfile, {
+        name: "Chrome Extension User",
+      });
     } catch (error) {
       console.error("Error ensuring user profile:", error);
     }
@@ -260,27 +372,27 @@ export class ConvexApiService {
       if (!this.authToken) {
         throw new Error("Not authenticated");
       }
-      
+
       return await client.query(api.userHelpers.getUserProfile);
     } catch (error: unknown) {
       console.error("Get user profile error:", error);
-      
+
       // Handle authentication errors by clearing invalid tokens
-      if (error instanceof Error && 
-          (error.message?.includes("Unauthenticated") || 
-           error.message?.includes("Could not verify token claim"))) {
+      if (error instanceof Error &&
+        (error.message?.includes("Unauthenticated") ||
+          error.message?.includes("Could not verify token claim"))) {
         console.log("🔐 Token invalid, clearing authentication");
         this.clearAuth();
         await StorageService.clearAll();
         throw new Error("Authentication expired. Please sign in again.");
       }
-      
+
       if (error instanceof Error && error.message?.includes("User profile not found")) {
         // Try to create profile
         await this.ensureUserProfile();
         return await client.query(api.userHelpers.getUserProfile);
       }
-      
+
       throw error;
     }
   }
@@ -291,7 +403,7 @@ export class ConvexApiService {
       if (!this.authToken) {
         throw new Error("Not authenticated");
       }
-      
+
       return await client.query(api.credits.checkCredits, {
         requiredCredits,
       });
@@ -308,7 +420,7 @@ export class ConvexApiService {
         throw new Error("Authentication required");
       }
 
-      const result = await client.action(api.jobs.extractJobWithAI, {
+      const result = await client.action(api.jobs.extractFromHTML, {
         url: jobData.url,
         title: jobData.title || '',
         html: jobData.html,
@@ -326,9 +438,9 @@ export class ConvexApiService {
       return { success: false, error: "Failed to extract job data" };
     } catch (error: unknown) {
       console.error("Job extraction error:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Failed to extract job data" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to extract job data"
       };
     }
   }
@@ -365,9 +477,9 @@ export class ConvexApiService {
       return { success: true };
     } catch (error: unknown) {
       console.error("Error deleting job:", error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : "Failed to delete job" 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete job"
       };
     }
   }
@@ -382,8 +494,8 @@ export class ConvexApiService {
       const result = await client.query(api.resumes.getResumes, {
         limit: 50
       });
-      
-      return result.resumes.map((resume: Doc<"resumes">) => ({
+
+      return result.resumes.map((resume: ConvexResumeDoc) => ({
         id: resume._id,
         userId: resume.userProfileId,
         filename: resume.filename,
@@ -397,12 +509,30 @@ export class ConvexApiService {
     }
   }
 
+  // Get resume download URL
+  public async getResumeDownloadUrl(resumeId: string): Promise<string | null> {
+    try {
+      if (!this.authToken) {
+        throw new Error("Authentication required");
+      }
+
+      const downloadUrl = await client.query(api.resumes.getDownloadUrl, {
+        resumeId: resumeId as Id<"resumes">
+      });
+
+      return downloadUrl;
+    } catch (error: unknown) {
+      console.error('❌ Failed to get resume download URL:', error);
+      throw new Error('Failed to get resume download URL');
+    }
+  }
+
   public async uploadResume(file: File): Promise<{ resume: Resume; remainingCredits: number }> {
     try {
       if (!this.authToken) {
         throw new Error("Authentication required");
       }
-      
+
       if (CONFIG.ENVIRONMENT === 'development') {
         console.log('📄 Uploading resume:', file.name);
       }
@@ -453,6 +583,10 @@ export class ConvexApiService {
         updatedAt: new Date().toISOString(),
       };
 
+      if (CONFIG.ENVIRONMENT === 'development') {
+        console.log('✅ Resume uploaded successfully, text extraction scheduled');
+      }
+
       return {
         resume: resumeData,
         remainingCredits: completeResult.remainingCredits,
@@ -464,12 +598,12 @@ export class ConvexApiService {
   }
 
   // Job extraction with AI processing (shows loading spinner)
-  public async extractJobFromHTML(htmlContent: string, url: string, title: string): Promise<ExtractedContent & { remainingCredits: number }> {
+  public async extractJobFromHTML(htmlContent: string, url: string, title: string): Promise<ExtractedContent & { jobId: string; remainingCredits: number }> {
     try {
       if (!this.authToken) {
         throw new Error("Authentication required");
       }
-      
+
       if (CONFIG.ENVIRONMENT === 'development') {
         console.log('🔍 Extracting job from HTML with AI:', { url, title });
       }
@@ -497,7 +631,7 @@ export class ConvexApiService {
       if (!this.authToken) {
         throw new Error("Authentication required");
       }
-      
+
       if (CONFIG.ENVIRONMENT === 'development') {
         console.log('✍️ Generating cover letter for:', data.extractedContent.company);
       }
@@ -515,9 +649,9 @@ export class ConvexApiService {
       if (!result.coverLetter) {
         throw new Error('Cover letter generation failed');
       }
-      
+
       const coverLetterId = result.coverLetter._id;
-      
+
       // Show initial placeholder content
       if (onProgress) {
         onProgress(result.coverLetter.content);
@@ -553,7 +687,7 @@ export class ConvexApiService {
     coverLetterId: string,
     onProgress?: (content: string) => void,
     maxAttempts: number = 20
-  ): Promise<Doc<"coverLetters">> {
+  ): Promise<ConvexCoverLetterDoc> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const coverLetter = await client.query(api.coverLetters.getCoverLetter, {
@@ -566,7 +700,7 @@ export class ConvexApiService {
 
         // Check if AI generation is complete (content is no longer placeholder)
         const isPlaceholder = coverLetter.content.includes('Generating your personalized cover letter');
-        
+
         if (!isPlaceholder) {
           if (CONFIG.ENVIRONMENT === 'development') {
             console.log('✅ Cover letter generation completed after', attempt + 1, 'attempts');
@@ -603,8 +737,8 @@ export class ConvexApiService {
       const result = await client.query(api.coverLetters.getCoverLetters, {
         limit: 50
       });
-      
-      return result.coverLetters.map((cl: Doc<"coverLetters">) => ({
+
+      return result.coverLetters.map((cl: ConvexCoverLetterDoc) => ({
         id: cl._id,
         userId: cl.userProfileId,
         extractedJobId: cl.extractedJobId || null,
@@ -629,12 +763,12 @@ export class ConvexApiService {
         throw new Error("Authentication required");
       }
 
-      const result = await client.mutation(api.billing.createSubscriptionCheckout, {
+      const result = await client.action(api.billing.createSubscriptionCheckout, {
         priceId,
         successUrl: `${window.location.origin}/success`,
         cancelUrl: `${window.location.origin}/cancel`,
       });
-      
+
       return { url: result.checkoutUrl };
     } catch (error: unknown) {
       console.error('❌ Failed to create billing session:', error);
@@ -666,6 +800,78 @@ export class ConvexApiService {
     } catch (error: unknown) {
       console.error('❌ Failed to get credit stats:', error);
       throw new Error('Failed to get credit stats');
+    }
+  }
+
+  // Create job application from extracted job
+  public async createJobApplicationFromExtracted(
+    extractedJobId: string,
+    options: {
+      status?: "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
+      appliedDate?: number;
+      notes?: string;
+      resumeId?: string;
+      coverLetterId?: string;
+    } = {}
+  ) {
+    try {
+      if (!this.authToken) {
+        throw new Error("Authentication required");
+      }
+
+      const result = await client.mutation(api.jobApplications.createFromExtractedJob, {
+        extractedJobId: extractedJobId as Id<"extractedJobs">,
+        status: options.status,
+        appliedDate: options.appliedDate,
+        notes: options.notes,
+        resumeId: options.resumeId as Id<"resumes"> | undefined,
+        coverLetterId: options.coverLetterId as Id<"coverLetters"> | undefined,
+      });
+
+      return result;
+    } catch (error: unknown) {
+      console.error('❌ Failed to create job application from extracted job:', error);
+      throw new Error('Failed to create job application');
+    }
+  }
+
+  // Get job applications
+  public async getJobApplications() {
+    try {
+      if (!this.authToken) {
+        throw new Error("Authentication required");
+      }
+
+      const result = await client.query(api.jobApplications.getJobApplications, {});
+
+      return {
+        jobApplications: result.jobApplications || [],
+        hasMore: result.hasMore || false
+      };
+    } catch (error: unknown) {
+      console.error('❌ Failed to get job applications:', error);
+      throw new Error('Failed to get job applications');
+    }
+  }
+
+  // Get extracted jobs
+  public async getExtractedJobs(limit?: number) {
+    try {
+      if (!this.authToken) {
+        throw new Error("Authentication required");
+      }
+
+      const result = await client.query(api.jobs.getExtractedJobs, {
+        limit: limit || 50
+      });
+
+      return {
+        jobs: result.jobs || [],
+        hasMore: result.hasMore || false
+      };
+    } catch (error: unknown) {
+      console.error('❌ Failed to get extracted jobs:', error);
+      throw new Error('Failed to get extracted jobs');
     }
   }
 }
