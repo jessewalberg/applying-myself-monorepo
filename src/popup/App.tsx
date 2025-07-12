@@ -29,6 +29,29 @@ import './popup.css';
 
 type TabType = 'generate' | 'history' | 'settings';
 
+// Simple analytics tracking for Chrome extension
+const trackExtensionEvent = (eventName: string, properties: Record<string, string> = {}) => {
+  try {
+    // Try to send analytics event to background script or API
+    if (chrome?.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'ANALYTICS_EVENT',
+        eventName,
+        properties: {
+          source: 'chrome_extension_popup',
+          timestamp: new Date().toISOString(),
+          ...properties
+        }
+      });
+    }
+
+    // Also log to console for debugging
+    console.log('Extension Analytics:', eventName, properties);
+  } catch (error) {
+    console.warn('Failed to track extension event:', error);
+  }
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('generate');
   const [user, setUser] = useState<UserType | null>(null);
@@ -36,10 +59,22 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const handleTabChange = (tab: string): void => {
-    setActiveTab(tab as TabType);
+    const newTab = tab as TabType;
+
+    // Track tab change
+    trackExtensionEvent('extension_tab_changed', {
+      from_tab: activeTab,
+      to_tab: newTab,
+      user_plan: user?.plan || 'none',
+      user_credits: (user?.credits || 0).toString()
+    });
+
+    setActiveTab(newTab);
   };
 
   useEffect(() => {
+    // Track popup opened
+    trackExtensionEvent('extension_popup_opened');
     initializeApp();
   }, []);
 
@@ -68,13 +103,29 @@ const App: React.FC = () => {
 
           setUser(userData);
           setIsAuthenticated(true);
+
+          // Track successful authentication from storage
+          trackExtensionEvent('extension_auth_restored', {
+            user_plan: userData.plan || 'none',
+            user_credits: userData.credits.toString(),
+            has_name: userData.name ? 'true' : 'false'
+          });
         } else {
           // Token is invalid
           await handleLogout();
         }
+      } else {
+        // Track unauthenticated session
+        trackExtensionEvent('extension_session_unauthenticated');
       }
     } catch (error) {
       console.error('Failed to initialize app:', error);
+
+      // Track initialization failure
+      trackExtensionEvent('extension_init_failed', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
       setIsAuthenticated(false);
       // Clear invalid token
       await StorageService.clearToken();
@@ -85,6 +136,12 @@ const App: React.FC = () => {
 
   const handleLogin = async (credentials: { email: string; password: string }): Promise<void> => {
     type SignInResponse = { success: boolean; token?: unknown; error?: string };
+
+    // Track login attempt
+    trackExtensionEvent('extension_login_attempted', {
+      email: credentials.email
+    });
+
     try {
       const response: SignInResponse = await convexApi.signIn(credentials);
       if (response.success && typeof response.token === 'string') {
@@ -106,6 +163,13 @@ const App: React.FC = () => {
 
           setUser(userData);
           setIsAuthenticated(true);
+
+          // Track successful login
+          trackExtensionEvent('extension_login_successful', {
+            user_plan: userData.plan || 'none',
+            user_credits: userData.credits.toString(),
+            has_name: userData.name ? 'true' : 'false'
+          });
         } else {
           throw new Error('Failed to get user profile');
         }
@@ -113,11 +177,23 @@ const App: React.FC = () => {
         throw new Error(response.error || 'Login failed');
       }
     } catch (error) {
+      // Track login failure
+      trackExtensionEvent('extension_login_failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        email: credentials.email
+      });
+
       throw error;
     }
   };
 
   const handleLogout = async (): Promise<void> => {
+    // Track logout
+    trackExtensionEvent('extension_logout', {
+      user_plan: user?.plan || 'none',
+      user_credits: (user?.credits || 0).toString()
+    });
+
     await convexApi.signOut();
     await StorageService.clearAll(); // Clear all stored data including user data
     setUser(null);
@@ -193,14 +269,45 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       if (isLogin) {
         await onLogin({ email: formData.email, password: formData.password });
       } else {
+        // Track signup attempt
+        trackExtensionEvent('extension_signup_attempted', {
+          email: formData.email,
+          has_name: formData.name ? 'true' : 'false'
+        });
+
         await convexApi.signUp(formData);
         await onLogin({ email: formData.email, password: formData.password });
+
+        // Track successful signup
+        trackExtensionEvent('extension_signup_successful', {
+          email: formData.email
+        });
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      const errorMessage = err.message || 'Authentication failed';
+      setError(errorMessage);
+
+      // Track auth failure
+      trackExtensionEvent(`extension_${isLogin ? 'login' : 'signup'}_failed`, {
+        error: errorMessage,
+        email: formData.email
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAuthToggle = () => {
+    const newMode = !isLogin;
+
+    // Track auth mode toggle
+    trackExtensionEvent('extension_auth_mode_toggled', {
+      from_mode: isLogin ? 'login' : 'signup',
+      to_mode: newMode ? 'login' : 'signup'
+    });
+
+    setIsLogin(newMode);
+    setError('');
   };
 
   return (
@@ -265,7 +372,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
           <button
             type="button"
             className="link-button"
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={handleAuthToggle}
             disabled={loading}
           >
             {isLogin ? 'Sign Up' : 'Sign In'}
@@ -296,5 +403,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => (
     </div>
   </div>
 );
+
+// Export the tracking function for use in other components
+export { trackExtensionEvent };
 
 export default App;

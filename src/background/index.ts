@@ -17,7 +17,7 @@ class BackgroundService {
     const manifest = chrome.runtime.getManifest();
     if (manifest.name.includes('Development')) {
       console.log('🔄 Auto-reload enabled for development');
-      
+
       chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
         if (message.type === 'RELOAD_EXTENSION') {
           console.log('🔄 Reloading extension...');
@@ -43,6 +43,11 @@ class BackgroundService {
         case 'EXTRACT_JOB':
           this.extractJobFromTab(message.tabId).then(sendResponse);
           return true;
+        case 'ANALYTICS_EVENT':
+          if (message.eventName) {
+            this.trackEvent(message.eventName, message.properties);
+          }
+          break;
         default:
           break;
       }
@@ -122,7 +127,7 @@ class BackgroundService {
   }
 
   private trackEvent(eventName: string, properties: Record<string, any> = {}): void {
-          fetch('https://dazzling-badger-1.convex.cloud/api/analytics', {
+    fetch('https://dazzling-badger-1.convex.cloud/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

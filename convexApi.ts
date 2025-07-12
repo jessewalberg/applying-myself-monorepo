@@ -1037,6 +1037,19 @@ export type PublicApiType = {
       { email: string },
       any
     >;
+    submitContactForm: FunctionReference<
+      "action",
+      "public",
+      {
+        email: string;
+        firstName: string;
+        lastName: string;
+        message: string;
+        newsletter?: boolean;
+        subject: string;
+      },
+      any
+    >;
   };
 };
 export type InternalApiType = {};

@@ -42,13 +42,24 @@ module.exports = (env, argv) => {
             MiniCssExtractPlugin.loader,
             'css-loader'
           ]
+        },
+        {
+          test: /jspdf.*\.js$/,
+          loader: 'string-replace-loader',
+          options: {
+            search: 'https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js',
+            replace: '',
+            flags: 'g'
+          }
         }
       ]
     },
     plugins: [
       new webpack.DefinePlugin({
         'process.env.NODE_ENV': JSON.stringify(environment),
-        'process.env.BUILD_ENV': JSON.stringify(environment)
+        'process.env.BUILD_ENV': JSON.stringify(environment),
+        // Replace CDN references at compile time
+        'process.env.PDFOBJECT_CDN_URL': JSON.stringify('')
       }),
       new HtmlWebpackPlugin({
         template: './src/popup/popup.html',

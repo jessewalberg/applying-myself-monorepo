@@ -10,6 +10,8 @@ export interface ChromeMessage {
   type: string;
   payload?: any;
   tabId?: number;
+  eventName?: string;
+  properties?: Record<string, any>;
 }
 
 export interface ChromeResponse<T = any> {
