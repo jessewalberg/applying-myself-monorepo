@@ -1,0 +1,50 @@
+"use client";
+
+import { useConvexAuth } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+
+interface ProtectedRouteProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  // Add mounting delay to prevent auth race conditions
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (mounted && !isLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [mounted, isLoading, isAuthenticated, router]);
+
+  // Show loading during mounting or auth loading
+  if (!mounted || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show fallback or nothing while redirecting
+  if (!isAuthenticated) {
+    return fallback || null;
+  }
+
+  // Only render children if authenticated
+  return <>{children}</>;
+} 

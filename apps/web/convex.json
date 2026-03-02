@@ -1,0 +1,9 @@
+{
+    "deployment": "oceanic-retriever-344",
+    "authInfo": [
+        {
+            "domain": "https://oceanic-retriever-344.convex.site",
+            "applicationID": "convex"
+        }
+    ]
+}
