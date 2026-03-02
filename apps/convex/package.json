@@ -1,0 +1,33 @@
+{
+  "name": "job-app-convex",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "build": "convex build",
+    "deploy": "convex deploy",
+    "codegen": "convex codegen",
+    "typecheck": "convex typecheck",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@auth/core": "^0.37.4",
+    "@convex-dev/auth": "^0.0.87",
+    "convex": "^1.24.8",
+    "stripe": "^18.2.1",
+    "zod": "^3.25.51"
+  },
+  "devDependencies": {
+    "@ljharb/tsconfig": "^0.3.2",
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.2"
+  }
+}
