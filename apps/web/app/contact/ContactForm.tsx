@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useConvex } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 
 // Contact Form Section
 export function ContactForm() {

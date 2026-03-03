@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DocumentIcon, PlusIcon, TrashIcon, StarIcon, CloudArrowUpIcon } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 import { Dropdown } from "@/components/ui/Dropdown";
 import { type GenericId as Id } from "convex/values";
 

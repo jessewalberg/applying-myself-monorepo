@@ -10,16 +10,15 @@
     "lib": "lib"
   },
   "scripts": {
-    "dev": "convex dev",
-    "build": "convex build",
-    "deploy": "convex deploy",
-    "codegen": "convex codegen",
-    "typecheck": "convex typecheck",
-    "test": "vitest"
+    "dev": "bunx convex dev",
+    "build": "bun run codegen:optional && bun run typecheck",
+    "deploy": "bunx convex deploy",
+    "codegen": "bunx convex codegen",
+    "codegen:optional": "if [ -n \"$CONVEX_DEPLOYMENT\" ]; then bun run codegen; else echo \"Skipping convex codegen (CONVEX_DEPLOYMENT not set)\"; fi",
+    "typecheck": "bunx convex typecheck",
+    "test": "bunx vitest"
   },
   "dependencies": {
-    "@auth/core": "^0.37.4",
-    "@convex-dev/auth": "^0.0.87",
     "convex": "^1.24.8",
     "stripe": "^18.2.1",
     "zod": "^3.25.51"

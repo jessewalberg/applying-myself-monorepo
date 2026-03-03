@@ -5,7 +5,7 @@ import { CreditCardIcon, DocumentTextIcon, DocumentIcon, BriefcaseIcon } from "@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 import { type GenericId as Id } from "convex/values";
 
 // Type definitions
@@ -41,7 +41,7 @@ export default function DashboardPage() {
   thisMonth.setDate(1);
   thisMonth.setHours(0, 0, 0, 0);
 
-  const thisMonthCoverLetters = coverLetters.filter(letter =>
+  const thisMonthCoverLetters = coverLetters.filter((letter: { createdAt?: number; _creationTime: number }) =>
     (letter.createdAt || letter._creationTime) >= thisMonth.getTime()
   ).length;
 

@@ -17,7 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 import { type GenericId as Id } from "convex/values";
 
 export default function ResumeDetailPage() {

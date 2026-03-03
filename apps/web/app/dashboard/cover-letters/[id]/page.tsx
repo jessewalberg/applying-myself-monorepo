@@ -18,7 +18,7 @@ import {
     DocumentArrowDownIcon
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 import { type GenericId as Id } from "convex/values";
 
 export default function CoverLetterDetailPage() {
@@ -117,7 +117,7 @@ export default function CoverLetterDetailPage() {
                             ],
                         }),
                         new Paragraph({ children: [] }), // Empty paragraph for spacing
-                        ...coverLetter.content.split('\n\n').map(paragraph =>
+                        ...coverLetter.content.split('\n\n').map((paragraph: string) =>
                             new Paragraph({
                                 children: [
                                     new TextRun({

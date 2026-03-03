@@ -15,9 +15,9 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 import { ApplyingMyselfLogo } from "./ApplyingMyselfLogo";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useClerk } from "@clerk/nextjs";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -28,14 +28,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState('');
   const router = useRouter();
-  const { signOut } = useAuthActions();
+  const { signOut } = useClerk();
 
   // Ensure user profile exists and fetch user data
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
   const [profileEnsured, setProfileEnsured] = useState(false);
 
   useEffect(() => {
-    ensureUserProfile({}).then(() => setProfileEnsured(true));
+    ensureUserProfile({})
+      .then(() => setProfileEnsured(true))
+      .catch((error) => {
+        console.error("Failed to ensure user profile:", error);
+      });
   }, [ensureUserProfile]);
 
   // Fetch user profile data

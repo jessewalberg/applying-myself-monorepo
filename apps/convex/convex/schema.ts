@@ -1,19 +1,21 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
-  // Include Convex Auth's built-in authentication tables
-  ...authTables,
-  
-  // Business user profiles - linked to Convex Auth users
+  // Business user profiles - linked to Clerk identity
   // This stores our app-specific user data like credits, billing, etc.
   userProfiles: defineTable({
-    // Link to Convex Auth user
-    userId: v.id("users"), // This references the Convex Auth users table
+    // Canonical Clerk user identifier (subject / tokenIdentifier)
+    clerkUserId: v.string(),
     email: v.string(),
     name: v.string(),
-    plan: v.union(v.literal("free"), v.literal("starter"), v.literal("pro"), v.literal("enterprise")),
+    plan: v.union(
+      v.literal("none"),
+      v.literal("starter"),
+      v.literal("pro"),
+      v.literal("hired")
+    ),
+    isAdmin: v.optional(v.boolean()),
     credits: v.optional(v.number()),
     stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.optional(v.string()),
@@ -36,10 +38,11 @@ export default defineSchema({
       postalCode: v.string(),
       country: v.string(),
     })),
+    entitlementsClaimedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_user_id", ["userId"])
+    .index("by_clerk_user_id", ["clerkUserId"])
     .index("by_email", ["email"])
     .index("by_stripe_customer", ["stripeCustomerId"]),
 
@@ -51,10 +54,12 @@ export default defineSchema({
     fileSize: v.number(),
     mimeType: v.string(),
     extractedText: v.optional(v.string()),
+    isDefault: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_user", ["userProfileId"]),
+    .index("by_user", ["userProfileId"])
+    .index("by_user_default", ["userProfileId", "isDefault"]),
 
   extractedJobs: defineTable({
     userProfileId: v.id("userProfiles"),
@@ -77,6 +82,39 @@ export default defineSchema({
   })
     .index("by_user", ["userProfileId"])
     .index("by_user_date", ["userProfileId", "extractedAt"]),
+
+  jobApplications: defineTable({
+    userProfileId: v.id("userProfiles"),
+    jobTitle: v.string(),
+    companyName: v.string(),
+    location: v.optional(v.string()),
+    salary: v.optional(v.string()),
+    status: v.optional(v.union(
+      v.literal("applied"),
+      v.literal("interviewing"),
+      v.literal("offered"),
+      v.literal("rejected"),
+      v.literal("withdrawn")
+    )),
+    appliedDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    jobUrl: v.optional(v.string()),
+    jobType: v.optional(v.union(
+      v.literal("full-time"),
+      v.literal("part-time"),
+      v.literal("contract"),
+      v.literal("internship"),
+      v.literal("freelance")
+    )),
+    resumeId: v.optional(v.id("resumes")),
+    coverLetterId: v.optional(v.id("coverLetters")),
+    extractedJobId: v.optional(v.id("extractedJobs")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userProfileId"])
+    .index("by_user_date", ["userProfileId", "createdAt"])
+    .index("by_user_status", ["userProfileId", "status"]),
 
   coverLetters: defineTable({
     userProfileId: v.id("userProfiles"),
@@ -153,9 +191,34 @@ export default defineSchema({
     .index("by_stripe_payment_intent", ["stripePaymentIntentId"])
     .index("by_stripe_session", ["stripeSessionId"]),
 
+  billingArchive: defineTable({
+    source: v.union(
+      v.literal("userProfiles"),
+      v.literal("subscriptions"),
+      v.literal("payments")
+    ),
+    sourceId: v.string(),
+    clerkUserId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    stripeInvoiceId: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    status: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+    archivedAt: v.number(),
+  })
+    .index("by_source", ["source"])
+    .index("by_source_id", ["source", "sourceId"])
+    .index("by_email", ["email"])
+    .index("by_clerk_user_id", ["clerkUserId"])
+    .index("by_stripe_customer", ["stripeCustomerId"])
+    .index("by_stripe_subscription", ["stripeSubscriptionId"]),
+
   creditTransactions: defineTable({
-    userProfileId: v.optional(v.id("userProfiles")),
-    userId: v.optional(v.string()), // Old field, for migration
+    userProfileId: v.id("userProfiles"),
     type: v.union(v.literal("earned"), v.literal("spent"), v.literal("refunded"), v.literal("expired")),
     amount: v.number(),
     balance: v.number(),
@@ -234,9 +297,9 @@ export interface CreditStats {
 }
 
 export interface JWTPayload {
-  userId: string;
+  clerkUserId: string;
   email: string;
-  plan: 'free' | 'starter' | 'pro' | 'enterprise';
+  plan: 'none' | 'starter' | 'pro' | 'hired';
   iat?: number;
   exp?: number;
 }

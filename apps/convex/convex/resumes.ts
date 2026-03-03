@@ -72,6 +72,11 @@ export const completeUpload = mutation({
       throw new ConvexError("Insufficient credits. Please upgrade your plan or purchase more credits.");
     }
 
+    const existingDefault = await ctx.db
+      .query("resumes")
+      .withIndex("by_user_default", (q) => q.eq("userProfileId", userProfile._id).eq("isDefault", true))
+      .unique();
+
     // Create resume record with actual storage ID
     const resumeId: Id<"resumes"> = await ctx.db.insert("resumes", {
       userProfileId: userProfile._id,
@@ -80,6 +85,7 @@ export const completeUpload = mutation({
       fileSize: args.fileSize,
       mimeType: args.mimeType,
       extractedText: undefined,
+      isDefault: !existingDefault,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -150,6 +156,7 @@ export const getResumes = query({
       fileSize: v.number(),
       mimeType: v.string(),
       extractedText: v.optional(v.string()),
+      isDefault: v.optional(v.boolean()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })),
@@ -191,6 +198,7 @@ export const getResume = query({
       fileSize: v.number(),
       mimeType: v.string(),
       extractedText: v.optional(v.string()),
+      isDefault: v.optional(v.boolean()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -283,5 +291,76 @@ export const getResumeStats = query({
       thisMonth,
       totalCreditsSpent,
     };
+  },
+});
+
+export const setDefault = mutation({
+  args: {
+    resumeId: v.id("resumes"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const userProfile = await getCurrentUserProfile(ctx);
+
+    const targetResume = await ctx.db.get(args.resumeId);
+    if (!targetResume || targetResume.userProfileId !== userProfile._id) {
+      throw new ConvexError("Resume not found or access denied");
+    }
+
+    const resumes = await ctx.db
+      .query("resumes")
+      .withIndex("by_user", (q) => q.eq("userProfileId", userProfile._id))
+      .collect();
+
+    for (const resume of resumes) {
+      const shouldBeDefault = resume._id === args.resumeId;
+      if ((resume.isDefault ?? false) !== shouldBeDefault) {
+        await ctx.db.patch(resume._id, {
+          isDefault: shouldBeDefault,
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    return { success: true };
+  },
+});
+
+export const getDefaultResume = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      _id: v.id("resumes"),
+      _creationTime: v.number(),
+      userProfileId: v.id("userProfiles"),
+      filename: v.string(),
+      fileId: v.id("_storage"),
+      fileSize: v.number(),
+      mimeType: v.string(),
+      extractedText: v.optional(v.string()),
+      isDefault: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    const userProfile = await getCurrentUserProfile(ctx);
+    const defaultResume = await ctx.db
+      .query("resumes")
+      .withIndex("by_user_default", (q) => q.eq("userProfileId", userProfile._id).eq("isDefault", true))
+      .unique();
+
+    if (defaultResume) return defaultResume;
+
+    const fallback = await ctx.db
+      .query("resumes")
+      .withIndex("by_user", (q) => q.eq("userProfileId", userProfile._id))
+      .order("desc")
+      .first();
+
+    return fallback ?? null;
   },
 });

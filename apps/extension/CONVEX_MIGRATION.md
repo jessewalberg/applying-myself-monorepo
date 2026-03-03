@@ -102,7 +102,7 @@ The extension now calls these Convex functions:
 ## Migration Steps for Developers
 
 1. **Update Convex URL**: Use the update script or manually edit `config.ts`
-2. **Build Extension**: Run `npm run build`
+2. **Build Extension**: Run `bun run build`
 3. **Test Authentication**: Verify login/register flows work
 4. **Test Job Extraction**: Try extracting from various job sites
 5. **Test Cover Letter Generation**: Ensure full workflow works
@@ -159,6 +159,6 @@ The extension now calls these Convex functions:
 - Check Convex function logs for errors
 
 ### Build errors
-- Run `npm install` to ensure all dependencies
+- Run `bun install` to ensure all dependencies
 - Check TypeScript compilation errors
 - Verify all imports are correct 

@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { User, CreditCard, Shield, ExternalLink, LogOut, AlertCircle, Briefcase } from 'lucide-react';
 import { ConvexApiService } from '@/services/convexApi';
-import type { SettingsTabProps } from '@/types';
+import CONFIG from '@/config';
+import type { SettingsTabProps, User as ExtensionUser } from '@/types';
 
 const convexApi = ConvexApiService.getInstance();
 
+type SettingsUser = ExtensionUser & {
+  subscriptionStatus?: string;
+};
+
 const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<SettingsUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load fresh user profile data
@@ -15,7 +20,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
     const loadUserProfile = async () => {
       try {
         const profile = await convexApi.getUserProfile();
-        setUserProfile(profile);
+        setUserProfile(profile as SettingsUser);
       } catch (error) {
         console.error('Failed to load user profile:', error);
       } finally {
@@ -27,7 +32,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
   }, []);
 
   // Use fresh profile data if available, fallback to prop data
-  const userData = userProfile || user;
+  const userData: SettingsUser | null = userProfile ?? (user ? { ...user } : null);
 
   if (loading || !userData) {
     return (
@@ -38,24 +43,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
   }
 
   const handleManageBilling = (): void => {
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://applyingmyself.com'
-      : 'http://localhost:3000';
-    window.open(`${baseUrl}/dashboard/billing`, '_blank');
+    window.open(`${CONFIG.SITE_URL}/dashboard/billing`, '_blank');
   };
 
   const handleManageSettings = (): void => {
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://applyingmyself.com'
-      : 'http://localhost:3000';
-    window.open(`${baseUrl}/dashboard/settings`, '_blank');
+    window.open(`${CONFIG.SITE_URL}/dashboard/settings`, '_blank');
   };
 
   const handleOpenJobsDashboard = (): void => {
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://applyingmyself.com'
-      : 'http://localhost:3000';
-    window.open(`${baseUrl}/dashboard/jobs`, '_blank');
+    window.open(`${CONFIG.SITE_URL}/dashboard/jobs`, '_blank');
   };
 
   const handleSignOut = async (): Promise<void> => {
@@ -64,9 +60,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
     try {
       setIsSigningOut(true);
       await convexApi.signOut();
-      // Trigger parent component update - pass undefined to indicate signed out
+      // Trigger parent component update to clear auth state in popup shell
       if (onUserUpdate) {
-        onUserUpdate(undefined as any);
+        onUserUpdate(null);
       }
     } catch (error) {
       console.error('Failed to sign out:', error);
@@ -197,14 +193,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ user, onUserUpdate }) => {
           <div className="privacy-links">
             <button
               className="link-button"
-              onClick={() => window.open('https://applyingmyself.com/privacy', '_blank')}
+              onClick={() => window.open(`${CONFIG.SITE_URL}/privacy`, '_blank')}
             >
               <ExternalLink size={16} />
               Privacy Policy
             </button>
             <button
               className="link-button"
-              onClick={() => window.open('https://applyingmyself.com/terms', '_blank')}
+              onClick={() => window.open(`${CONFIG.SITE_URL}/terms`, '_blank')}
             >
               <ExternalLink size={16} />
               Terms of Service

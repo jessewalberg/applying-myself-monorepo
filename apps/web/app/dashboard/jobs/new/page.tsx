@@ -4,19 +4,20 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { useConvexAuth, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { useMutation } from "convex/react";
+import { api } from '@app/convex-client';
+import { useAuth } from "@clerk/nextjs";
 
 export default function NewJobPage() {
   const router = useRouter();
-  const { isAuthenticated } = useConvexAuth();
+  const { isLoaded, userId } = useAuth();
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isLoaded && userId) {
       ensureUserProfile({});
     }
-  }, [isAuthenticated, ensureUserProfile]);
+  }, [isLoaded, userId, ensureUserProfile]);
 
   const [formData, setFormData] = useState({
     jobTitle: "",

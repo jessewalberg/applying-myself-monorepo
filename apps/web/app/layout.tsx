@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { ConvexProvider } from "@/components/ConvexProvider";
 import { Analytics } from "@vercel/analytics/next";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -110,8 +104,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="font-inter antialiased bg-white text-gray-900">
+    <html lang="en">
+      <body className="font-sans antialiased bg-white text-gray-900">
         <ConvexProvider>
           {children}
         </ConvexProvider>

@@ -2,29 +2,43 @@ import React, { useState, useEffect } from 'react';
 import {
   Globe,
   FileText,
-  Sparkles,
   Download,
   Copy,
   Check,
   CheckCircle,
   AlertCircle,
   Upload,
-  ChevronRight,
   Briefcase,
   RefreshCw,
   ChevronDown,
   ExternalLink
 } from 'lucide-react';
 import { convexApi } from '@/services/convexApi';
-import CONFIG from '@/config';
 import type { GenerateTabProps, Resume, ExtractedContent, User } from '@/types';
+import { useResumeLibrary } from '@/features/generate/hooks/useResumeLibrary';
+import { useExtractJob } from '@/features/generate/hooks/useExtractJob';
+import { useGenerateCoverLetter } from '@/features/generate/hooks/useGenerateCoverLetter';
+
+type ApplicationStatus = "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
 
 const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
   const [step, setStep] = useState(1);
-  const [extractedData, setExtractedData] = useState<ExtractedContent | null>(null);
-  const [extractedJobId, setExtractedJobId] = useState<string | null>(null);
-  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
-  const [resumes, setResumes] = useState<Resume[]>([]);
+  const {
+    resumes,
+    selectedResume,
+    setSelectedResume,
+    loadResumes,
+    uploadResume,
+    getDownloadUrl,
+  } = useResumeLibrary();
+  const {
+    extractedData,
+    extractedJobId,
+    setExtractedData,
+    checkForExtractedContent,
+    extractFromActiveTab,
+  } = useExtractJob();
+  const { generate } = useGenerateCoverLetter();
   const [coverLetter, setCoverLetter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +47,7 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   // Job tracking state
   const [trackApplication, setTrackApplication] = useState(false);
-  const [applicationStatus, setApplicationStatus] = useState<"applied" | "interviewing" | "offered" | "rejected" | "withdrawn">("applied");
+  const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>("applied");
   const [applicationNotes, setApplicationNotes] = useState('');
 
   // Add null check for user
@@ -46,8 +60,12 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
   }
 
   useEffect(() => {
-    loadResumes();
-    checkForExtractedContent();
+    void loadResumes();
+    void checkForExtractedContent().then((snapshot) => {
+      if (snapshot) {
+        setStep(2);
+      }
+    });
   }, []);
 
   // Close dropdown when clicking outside
@@ -65,56 +83,6 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     }
   }, [showDownloadOptions]);
 
-  const loadResumes = async (): Promise<void> => {
-    try {
-      const resumeList = await convexApi.getResumes();
-      setResumes(resumeList);
-      if (resumeList.length > 0) {
-        setSelectedResume(resumeList[0]);
-      }
-    } catch (err) {
-      console.error('Failed to load resumes:', err);
-    }
-  };
-
-  /**
-   * Check if user has recently extracted content
-   */
-  const checkForExtractedContent = async (): Promise<void> => {
-    try {
-      const result = await chrome.storage.local.get(['lastExtractedJob', 'extractionTimestamp']);
-
-      if (result.lastExtractedJob && result.extractionTimestamp) {
-        // Check if extraction is recent (within 10 minutes)
-        const tenMinutes = 10 * 60 * 1000;
-        const isRecent = (Date.now() - result.extractionTimestamp) < tenMinutes;
-
-        if (isRecent) {
-          setExtractedData(result.lastExtractedJob as ExtractedContent);
-          setStep(2); // Skip to step 2 if we have recent data
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check for extracted content:', error);
-    }
-  };
-
-  /**
-   * Test API connectivity
-   */
-  const testAPIConnectivity = async (): Promise<boolean> => {
-    try {
-      console.log('Testing API connectivity...');
-      // Try a simple GET request to test connectivity
-      await convexApi.getUserProfile();
-      console.log('API connectivity test passed');
-      return true;
-    } catch (error) {
-      console.error('API connectivity test failed:', error);
-      return false;
-    }
-  };
-
   /**
    * Trigger content extraction from current page
    */
@@ -123,105 +91,8 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     setError('');
 
     try {
-      // Test API connectivity first
-      const isAPIReachable = await testAPIConnectivity();
-      if (!isAPIReachable) {
-        throw new Error('Cannot connect to the API server. Please check if the server is running.');
-      }
-
-      // Get current tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab.id) {
-        throw new Error('No active tab found');
-      }
-
-      console.log('Attempting to extract from tab:', tab.url);
-
-      // First, ping the content script to see if it's active
-      try {
-        const pingResponse = await chrome.tabs.sendMessage(tab.id, {
-          type: 'PING'
-        });
-        console.log('Content script ping response:', pingResponse);
-      } catch (pingError) {
-        console.warn('Content script not responding, attempting to inject...');
-
-        // Try to inject the content script manually
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content.js']
-          });
-          console.log('Content script injected successfully');
-
-          // Wait a moment for the script to initialize
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (injectError) {
-          console.error('Failed to inject content script:', injectError);
-          throw new Error('Unable to access this page. Please try refreshing the page and try again.');
-        }
-      }
-
-      // Get page data from content script (no API call)
-      const pageDataResponse = await chrome.tabs.sendMessage(tab.id, {
-        type: 'GET_PAGE_DATA'
-      });
-
-      console.log('Page data response:', pageDataResponse);
-
-      if (!pageDataResponse?.success || !pageDataResponse.data) {
-        throw new Error('Failed to extract page data');
-      }
-
-      const pageData = pageDataResponse.data;
-      console.log('Page data received:', {
-        url: pageData.url,
-        title: pageData.title,
-        htmlLength: pageData.html.length
-      });
-
-      // Make API call from popup context (has proper permissions)
-      console.log('Making API call from popup context...');
-      const result = await convexApi.extractJobFromHTML(
-        pageData.html,
-        pageData.url,
-        pageData.title
-      );
-
-      console.log('API extraction result:', result);
-
-      if (!result) {
-        throw new Error('No data returned from extraction');
-      }
-
-      // The backend now returns data in the correct ExtractedContent format
-      const newExtractedData: ExtractedContent = {
-        title: result.title,
-        company: result.company,
-        location: result.location,
-        description: result.description,
-        requirements: result.requirements,
-        salary: result.salary,
-        type: result.type,
-        postedDate: result.postedDate,
-        url: result.url,
-        confidence: result.confidence,
-        pageType: result.pageType,
-        domain: result.domain,
-      };
-
-      await chrome.storage.local.set({
-        lastExtractedJob: newExtractedData,
-        extractionTimestamp: Date.now()
-      });
-
-      // Update user credits with the value returned from extraction
+      const result = await extractFromActiveTab();
       onUserUpdate({ ...user, credits: result.remainingCredits });
-
-      // Store the extracted job ID for potential tracking
-      setExtractedJobId(result.jobId);
-      setExtractedData(newExtractedData);
       setStep(2);
 
     } catch (err: unknown) {
@@ -243,13 +114,12 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     setError('');
 
     try {
-      const uploadResult = await convexApi.uploadResume(file);
-      await loadResumes();
-      setSelectedResume(uploadResult.resume);
+      const uploadResult = await uploadResume(file);
 
       // Update user credits
       onUserUpdate({ ...user, credits: uploadResult.remainingCredits });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      console.error('Failed to upload resume:', err);
       setError('Failed to upload resume. Please try again.');
     } finally {
       setLoading(false);
@@ -268,37 +138,24 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     setStep(3); // Show the cover letter step immediately with loading state
 
     try {
-      const response = await convexApi.generateCoverLetterFromContent({
-        resumeId: selectedResume.id,
-        extractedContent: extractedData,
-        tone: 'professional', // or get from UI
-        length: 'medium',     // or get from UI
-      }, (progressContent: string) => {
-        // Update cover letter content as AI generates it
-        setCoverLetter(progressContent);
+      const response = await generate({
+        selectedResume,
+        extractedData,
+        extractedJobId,
+        trackApplication,
+        applicationOptions: {
+          status: applicationStatus,
+          appliedDate: Date.now(),
+          notes: applicationNotes,
+          resumeId: selectedResume.id,
+        },
+        onProgress: (progressContent: string) => {
+          setCoverLetter(progressContent);
+        },
       });
 
       // Final update with completed content
       setCoverLetter(response.coverLetter.content);
-
-      // If tracking is enabled, automatically track the application
-      if (trackApplication && extractedJobId) {
-        try {
-          await convexApi.createJobApplicationFromExtracted(extractedJobId, {
-            status: applicationStatus,
-            appliedDate: Date.now(),
-            notes: applicationNotes,
-            resumeId: selectedResume.id,
-          });
-
-          // Show success message for tracking
-          console.log('✅ Job application tracked successfully!');
-        } catch (trackingErr) {
-          console.error('Failed to track application:', trackingErr);
-          // Don't fail the whole process if tracking fails
-          setError('Cover letter generated successfully, but failed to track application.');
-        }
-      }
 
       // Refetch user profile to get updated credits
       const updatedUserProfile = await convexApi.getUserProfile();
@@ -409,7 +266,7 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   const handleResumeDownload = async (resume: Resume): Promise<void> => {
     try {
-      const downloadUrl = await convexApi.getResumeDownloadUrl(resume.id);
+      const downloadUrl = await getDownloadUrl(resume.id);
       if (downloadUrl) {
         // Create a temporary link to download the file
         const link = document.createElement('a');
@@ -426,7 +283,6 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
       setError('Failed to download resume. Please try again.');
     }
   };
-  console.log(coverLetter)
   return (
     <div className="generate-tab">
       <div className="steps-indicator">
@@ -493,7 +349,7 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
                   <label>Status:</label>
                   <select
                     value={applicationStatus}
-                    onChange={(e) => setApplicationStatus(e.target.value as any)}
+                    onChange={(e) => setApplicationStatus(e.target.value as ApplicationStatus)}
                     className="status-select"
                   >
                     <option value="applied">Applied</option>

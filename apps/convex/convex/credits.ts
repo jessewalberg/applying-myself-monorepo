@@ -269,7 +269,7 @@ export const checkSubscriptionLimits = query({
     const userProfile = await getCurrentUserProfile(ctx);
 
     // Get plan limits from constants
-    const currentPlanLimit = AI_LIMITS[userProfile.plan as keyof typeof AI_LIMITS] || AI_LIMITS.free;
+    const currentPlanLimit = AI_LIMITS[userProfile.plan as keyof typeof AI_LIMITS] || AI_LIMITS.none;
 
     // Check if user has active subscription
     const hasActiveSubscription = userProfile.subscriptionStatus === "active";

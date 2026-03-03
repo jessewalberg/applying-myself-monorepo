@@ -1,8 +1,8 @@
 {
-    "deployment": "oceanic-retriever-344",
+    "deployment": "dazzling-badger-1",
     "authInfo": [
         {
-            "domain": "https://oceanic-retriever-344.convex.site",
+            "domain": "https://dazzling-badger-1.convex.site",
             "applicationID": "convex"
         }
     ]

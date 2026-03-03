@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { CreditCardIcon, CheckIcon, XMarkIcon, ArrowUpIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@app/convex-client';
 
 // Price configuration based on environment
 const getPlans = () => {

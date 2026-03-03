@@ -1,4 +1,4 @@
-import type { ChromeMessage } from './chrome';
+import type { StorageSchemaV1 } from "@/core/storage/schema";
 
 export interface User {
     id: string;
@@ -166,7 +166,7 @@ export interface PageMetadata {
     wordCount: number;
     hasImages: boolean;
     hasVideo: boolean;
-    structuredData: any[];
+    structuredData: unknown[];
     metaTags: Record<string, string>;
     openGraph: Record<string, string>;
     headings: Array<{ level: number, text: string }>;
@@ -192,7 +192,6 @@ export interface JobSiteConfig {
 export interface TabNavigationProps {
     activeTab: string;
     onTabChange: (tab: string) => void;
-    user: User | null;
 }
 
 export interface GenerateTabProps {
@@ -207,17 +206,11 @@ export interface HistoryTabProps {
 
 export interface SettingsTabProps {
     user: User | null;
-    onUserUpdate: (user: User) => void;
+    onUserUpdate: (user: User | null) => void;
 }
 
 // Storage Types
-export interface StorageData {
-    authToken?: string;
-    userData?: User;
-    settings?: UserSettings;
-    lastExtractedJob?: ExtractedContent;
-    extractionTimestamp?: number;
-}
+export type StorageData = Partial<StorageSchemaV1>;
 
 export interface UserSettings {
     autoDetect: boolean;

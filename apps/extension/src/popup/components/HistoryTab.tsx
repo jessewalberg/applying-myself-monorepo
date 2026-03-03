@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calendar, Eye, Download, Trash2, AlertCircle, Copy, CheckCircle, ExternalLink, ChevronDown, Briefcase, Filter, Plus } from 'lucide-react';
-import { convexApi } from '@/services/convexApi';
-import type { HistoryTabProps, CoverLetter, JobApplication, ExtractedJob } from '@/types';
+import { FileText, Eye, Download, AlertCircle, Copy, CheckCircle, ExternalLink, ChevronDown, Briefcase, Plus } from 'lucide-react';
+import { useHistoryData } from '@/features/history/useHistoryData';
+import CONFIG from '@/config';
+import type { HistoryTabProps, CoverLetter } from '@/types';
 
 const HistoryTab: React.FC<HistoryTabProps> = ({ user, refreshTrigger }) => {
-  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
-  const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
-  const [extractedJobs, setExtractedJobs] = useState<ExtractedJob[]>([]);
+  const { coverLetters, jobApplications, extractedJobs, loadHistory: loadHistoryData } = useHistoryData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [selectedLetter, setSelectedLetter] = useState<CoverLetter | null>(null);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [activeView, setActiveView] = useState<'cover-letters' | 'applications'>('cover-letters');
 
   if (!user) {
@@ -30,19 +27,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ user, refreshTrigger }) => {
     try {
       setLoading(true);
       setError('');
-
-      // Load cover letters
-      const letters = await convexApi.getCoverLetters();
-      setCoverLetters(letters);
-
-      // Load job applications
-      const jobApplicationsResult = await convexApi.getJobApplications();
-      setJobApplications(jobApplicationsResult.jobApplications);
-
-      // Load extracted jobs
-      const extractedJobsResult = await convexApi.getExtractedJobs();
-      setExtractedJobs(extractedJobsResult.jobs);
-
+      await loadHistoryData();
     } catch (err: unknown) {
       console.error('Failed to load history:', err);
       setError(err instanceof Error ? err.message : 'Failed to load history');
@@ -51,74 +36,13 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ user, refreshTrigger }) => {
     }
   };
 
-  const handleViewLetter = (letter: CoverLetter): void => {
-    setSelectedLetter(letter);
-  };
-
   const handleBackToList = (): void => {
     setSelectedLetter(null);
-    setCopySuccess(false);
-    setShowDownloadOptions(false);
-  };
-
-  const handleCopyToClipboard = async (content: string): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopySuccess(true);
-
-      setTimeout(() => {
-        setCopySuccess(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
-      setError('Failed to copy to clipboard. Please try again.');
-    }
-  };
-
-  const handleDownloadAsGoogleDoc = async (content: string): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(content);
-      const googleDocsUrl = 'https://docs.google.com/document/create';
-      chrome.tabs.create({ url: googleDocsUrl });
-      setShowDownloadOptions(false);
-      alert('✅ Cover letter copied to clipboard!\n\n📝 Google Docs will open in a new tab\n📋 Simply paste (Ctrl+V / Cmd+V) your cover letter\n💾 Save and edit as needed');
-    } catch (err) {
-      console.error('Failed to open Google Docs:', err);
-      setError('Failed to open Google Docs. Please try again.');
-    }
-  };
-
-  const handleDownloadAsWordDoc = async (content: string, letter: CoverLetter): Promise<void> => {
-    try {
-      const { generateDocx, generateCoverLetterFilename } = await import('@/utils/documentGenerator');
-
-      const filename = generateCoverLetterFilename(
-        letter.company || undefined,
-        letter.jobTitle || undefined,
-        'docx'
-      );
-
-      await generateDocx({
-        title: `Cover Letter - ${letter.jobTitle || 'Position'}`,
-        company: letter.company || undefined,
-        content: content,
-        createdAt: new Date(letter.createdAt).getTime(),
-        filename
-      });
-
-      setShowDownloadOptions(false);
-    } catch (err) {
-      console.error('Failed to download Word document:', err);
-      setError('Failed to download document. Please try again.');
-    }
   };
 
   const handleOpenDashboard = (section: 'cover-letters' | 'jobs') => {
-    const baseUrl = process.env.NODE_ENV === 'production'
-      ? 'https://applyingmyself.com'
-      : 'http://localhost:3000';
     const path = section === 'cover-letters' ? '/dashboard/cover-letters' : '/dashboard/jobs';
-    window.open(`${baseUrl}${path}`, '_blank');
+    window.open(`${CONFIG.SITE_URL}${path}`, '_blank');
   };
 
   const getStatusColor = (status: string) => {
@@ -364,44 +288,6 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ user, refreshTrigger }) => {
     </div>
   );
 };
-
-interface HistoryItemProps {
-  letter: CoverLetter;
-  onView: () => void;
-  onDownload: (content: string) => void;
-}
-
-const HistoryItem: React.FC<HistoryItemProps> = ({ letter, onView, onDownload }) => (
-  <div className="history-item">
-    <div className="history-content">
-      <div className="history-main">
-        <h4>{letter.jobTitle || 'Untitled Position'}</h4>
-        <p className="company">{letter.company || 'Company Name'}</p>
-        <div className="history-meta">
-          <span className="date">
-            <Calendar size={12} />
-            {new Date(letter.createdAt || Date.now()).toLocaleDateString()}
-          </span>
-          <span className="credits">
-            {letter.creditsUsed} credits used
-          </span>
-        </div>
-      </div>
-      <div className="history-actions">
-        <button className="icon-button" onClick={onView} title="View letter">
-          <Eye size={16} />
-        </button>
-        <button
-          className="icon-button"
-          onClick={() => onDownload(letter.content)}
-          title="Download letter"
-        >
-          <Download size={16} />
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 interface LetterViewerProps {
   letter: CoverLetter;

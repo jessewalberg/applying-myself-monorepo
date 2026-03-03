@@ -44,7 +44,7 @@ export class HTMLExtractor {
     return text.trim().split(/\s+/).length;
   }
 
-  private static extractStructuredData(): any[] {
+  private static extractStructuredData(): unknown[] {
     const scripts = document.querySelectorAll('script[type="application/ld+json"]');
     return Array.from(scripts).map(script => {
       try {
