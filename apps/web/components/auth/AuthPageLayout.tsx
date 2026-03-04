@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 interface AuthPageLayoutProps {
   children: ReactNode;
@@ -16,36 +15,51 @@ export function AuthPageLayout({
   subheading,
 }: AuthPageLayoutProps) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(124,58,237,0.18),transparent_45%),radial-gradient(ellipse_at_bottom_right,_rgba(14,165,233,0.12),transparent_45%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-1/4 w-64 h-64 bg-accent/5 rounded-full blur-3xl" />
 
       <div className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-4 py-10 sm:px-8 lg:grid-cols-2">
+        {/* Left — branding */}
         <section className="hidden lg:block">
-          <div className="flex items-center gap-3">
-            <ApplyingMyselfLogo size="md" />
-            <span className="text-xl font-semibold text-slate-900">Applying Myself</span>
-          </div>
-          <div className="mt-6 space-y-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-900">{heading}</h1>
-            <p className="max-w-md text-lg text-slate-600">{subheading}</p>
+          <Link href="/" className="flex items-center gap-1">
+            <span className="font-display italic text-xl text-foreground">
+              applying myself
+            </span>
+            <span className="text-primary text-2xl leading-none">.</span>
+          </Link>
+          <div className="mt-8 space-y-3">
+            <h1 className="font-display text-4xl tracking-tight text-foreground">
+              {heading}
+            </h1>
+            <p className="max-w-md text-lg text-muted-foreground">
+              {subheading}
+            </p>
           </div>
         </section>
 
+        {/* Right — auth form */}
         <section className="mx-auto w-full max-w-md">
           <div className="mb-6 flex justify-center lg:hidden">
-            <ApplyingMyselfLogo size="lg" />
+            <Link href="/" className="flex items-center gap-1">
+              <span className="font-display italic text-xl text-foreground">
+                applying myself
+              </span>
+              <span className="text-primary text-2xl leading-none">.</span>
+            </Link>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-xl shadow-black/10">
             {children}
           </div>
 
           <div className="mt-6 text-center">
             <Link
               href="/"
-              className="font-medium text-violet-600 transition-colors hover:text-violet-700"
+              className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
             >
-              ← Back to home
+              &larr; Back to home
             </Link>
           </div>
         </section>

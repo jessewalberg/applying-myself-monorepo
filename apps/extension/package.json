@@ -28,6 +28,7 @@
   "dependencies": {
     "@applyingmyself/convex-client": "workspace:*",
     "@applyingmyself/runtime-config": "workspace:*",
+    "@applyingmyself/ui": "workspace:*",
     "@clerk/chrome-extension": "^2.9.9",
     "convex": "^1.32.0",
     "convex-helpers": "^0.1.94",
@@ -48,6 +49,8 @@
     "eslint": "^8.0.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.1.0",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
     "sharp": "^0.34.2",
     "typescript": "^5.2.0",
     "wxt": "^0.20.18"

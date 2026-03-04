@@ -1,32 +1,34 @@
 export const authAppearance = {
   variables: {
-    colorPrimary: "#7c3aed",
-    colorText: "#0f172a",
-    colorBackground: "#ffffff",
-    fontFamily:
-      "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
-    borderRadius: "0.75rem",
+    colorPrimary: "#d97706",
+    colorText: "#f5f0e8",
+    colorTextSecondary: "#8a8078",
+    colorBackground: "#141210",
+    colorInputBackground: "#1c1a17",
+    colorInputText: "#f5f0e8",
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif",
+    borderRadius: "0.5rem",
   },
   elements: {
     rootBox: "w-full",
     cardBox: "w-full shadow-none",
     card: "w-full border-0 bg-transparent p-0 shadow-none",
-    headerTitle: "text-2xl font-semibold text-slate-900",
-    headerSubtitle: "text-slate-600",
+    headerTitle: "text-2xl font-semibold text-foreground",
+    headerSubtitle: "text-muted-foreground",
     socialButtonsBlockButton:
-      "rounded-lg border border-slate-200 bg-white shadow-none hover:bg-slate-50",
-    socialButtonsBlockButtonText: "font-medium text-slate-700",
-    dividerText: "text-slate-500",
-    dividerLine: "bg-slate-200",
-    formFieldLabel: "text-slate-700",
+      "rounded-md border border-[hsl(20_8%_18%)] bg-[hsl(20_10%_8%)] shadow-none hover:bg-[hsl(20_8%_12%)]",
+    socialButtonsBlockButtonText: "font-medium text-[hsl(40_20%_95%)]",
+    dividerText: "text-[hsl(20_8%_55%)]",
+    dividerLine: "bg-[hsl(20_8%_18%)]",
+    formFieldLabel: "text-[hsl(40_15%_80%)]",
     formFieldInput:
-      "h-11 rounded-lg border-slate-300 text-slate-900 focus:border-violet-500 focus:ring-violet-500",
+      "h-11 rounded-md border-[hsl(20_8%_18%)] bg-[hsl(20_10%_8%)] text-[hsl(40_20%_95%)] focus:border-[hsl(38_92%_50%)] focus:ring-[hsl(38_92%_50%)]",
     formButtonPrimary:
-      "h-11 rounded-lg bg-violet-600 text-white shadow-none hover:bg-violet-700",
-    footerActionText: "text-slate-600",
-    footerActionLink: "text-violet-600 hover:text-violet-700",
-    formResendCodeLink: "text-violet-600 hover:text-violet-700",
+      "h-11 rounded-md bg-[hsl(38_92%_50%)] text-[hsl(20_14%_4%)] font-semibold shadow-none hover:bg-[hsl(38_92%_45%)]",
+    footerActionText: "text-[hsl(20_8%_55%)]",
+    footerActionLink: "text-[hsl(38_92%_50%)] hover:text-[hsl(38_92%_55%)]",
+    formResendCodeLink: "text-[hsl(38_92%_50%)] hover:text-[hsl(38_92%_55%)]",
     otpCodeFieldInput:
-      "rounded-lg border-slate-300 text-slate-900 focus:border-violet-500 focus:ring-violet-500",
+      "rounded-md border-[hsl(20_8%_18%)] bg-[hsl(20_10%_8%)] text-[hsl(40_20%_95%)] focus:border-[hsl(38_92%_50%)] focus:ring-[hsl(38_92%_50%)]",
   },
 };

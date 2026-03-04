@@ -21,6 +21,7 @@
   "dependencies": {
     "@applyingmyself/convex-client": "workspace:*",
     "@applyingmyself/runtime-config": "workspace:*",
+    "@applyingmyself/ui": "workspace:*",
     "@clerk/nextjs": "^6.39.0",
     "@heroicons/react": "^2.2.0",
     "@vercel/analytics": "^1.5.0",

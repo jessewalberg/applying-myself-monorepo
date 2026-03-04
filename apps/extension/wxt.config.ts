@@ -84,7 +84,7 @@ export default defineConfig({
     name: meta.name,
     version: "1.0.0",
     description: meta.description,
-    permissions: ["activeTab", "storage", "scripting", "contextMenus", "cookies"],
+    permissions: ["activeTab", "storage", "scripting", "contextMenus", "cookies", "sidePanel"],
     host_permissions: [...new Set([...hostPermissions[env], ...clerkHostPermissions])],
     action: {
       default_title: meta.title,
@@ -107,5 +107,8 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
+    side_panel: {
+      default_path: "sidepanel.html",
+    },
   },
 });
