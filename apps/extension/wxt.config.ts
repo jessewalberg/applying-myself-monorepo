@@ -1,7 +1,7 @@
 import { defineConfig } from "wxt";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { detectRuntimeEnv, resolveRuntimeConfig, type RuntimeEnv } from "@app/runtime-config";
+import { detectRuntimeEnv, resolveRuntimeConfig, type RuntimeEnv } from "@applyingmyself/runtime-config";
 
 const resolveEnv = (): RuntimeEnv => {
   const raw = process.env.WXT_MODE || process.env.NODE_ENV || "development";

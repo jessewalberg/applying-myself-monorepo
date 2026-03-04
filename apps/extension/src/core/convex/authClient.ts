@@ -1,4 +1,4 @@
-import { api } from "@app/convex-client";
+import { api } from "@applyingmyself/convex-client";
 import { StorageService } from "@/services/storage";
 import CONFIG from "@/config";
 import {

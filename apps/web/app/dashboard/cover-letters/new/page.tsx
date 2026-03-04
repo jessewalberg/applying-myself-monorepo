@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 import { Dropdown } from "@/components/ui/Dropdown";
 import { type GenericId as Id } from "convex/values";
 

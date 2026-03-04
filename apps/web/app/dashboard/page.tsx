@@ -5,7 +5,7 @@ import { CreditCardIcon, DocumentTextIcon, DocumentIcon, BriefcaseIcon } from "@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 import { type GenericId as Id } from "convex/values";
 
 // Type definitions

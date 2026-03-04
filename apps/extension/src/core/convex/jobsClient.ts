@@ -1,4 +1,4 @@
-import { api } from "@app/convex-client";
+import { api } from "@applyingmyself/convex-client";
 import type { GenericId as Id } from "convex/values";
 import CONFIG from "@/config";
 import type { ExtractedContent } from "@/types";

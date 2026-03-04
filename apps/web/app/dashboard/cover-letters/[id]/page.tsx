@@ -18,7 +18,7 @@ import {
     DocumentArrowDownIcon
 } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 import { type GenericId as Id } from "convex/values";
 
 export default function CoverLetterDetailPage() {

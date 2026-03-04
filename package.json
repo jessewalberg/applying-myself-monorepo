@@ -8,17 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun run build:web && bun run build:extension && bun run build:convex",
-    "build:web": "bun run --cwd apps/web build",
-    "build:extension": "bun run --cwd apps/extension build:prod",
-    "build:convex": "bun run --cwd apps/convex build",
-    "lint": "bun run lint:web && bun run lint:extension",
-    "lint:web": "bun run --cwd apps/web lint",
-    "lint:extension": "bun run --cwd apps/extension lint",
-    "typecheck": "bun run typecheck:web && bun run typecheck:extension && bun run typecheck:convex",
-    "typecheck:web": "bun run --cwd apps/web typecheck",
-    "typecheck:extension": "bun run --cwd apps/extension type-check",
-    "typecheck:convex": "bun run --cwd apps/convex typecheck",
+    "dev": "bunx turbo dev",
+    "dev:web": "bunx turbo dev --filter=@applyingmyself/web",
+    "dev:ext": "bunx turbo dev --filter=@applyingmyself/extension",
+    "dev:convex": "CI=1 bun run --cwd apps/convex dev",
+    "build": "bunx turbo build",
+    "lint": "bunx turbo lint",
+    "typecheck": "bunx turbo typecheck",
     "convex:dev": "CI=1 bun run --cwd apps/convex dev",
     "convex:dev:once": "CI=1 bun run --cwd apps/convex dev -- --once",
     "convex:deploy": "CI=1 bun run --cwd apps/convex deploy",
@@ -30,9 +26,8 @@
     "smoke": "bash scripts/run-smoke-checklist.sh"
   },
   "devDependencies": {
+    "turbo": "^2",
     "typescript": "^5.8.3"
   },
-  "dependencies": {
-    "convex": "^1.32.0"
-  }
+  "dependencies": {}
 }

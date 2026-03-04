@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from 'convex/react';
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 
 export default function ReceiptsPage() {
     const paymentData = useQuery(api.billing.getPaymentHistory, { limit: 50 });

@@ -1,5 +1,5 @@
 {
-  "name": "job-app-convex",
+  "name": "@applyingmyself/convex",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
@@ -19,7 +19,7 @@
     "test": "bunx vitest"
   },
   "dependencies": {
-    "convex": "^1.24.8",
+    "convex": "^1.32.0",
     "stripe": "^18.2.1",
     "zod": "^3.25.51"
   },

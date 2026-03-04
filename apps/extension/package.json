@@ -1,5 +1,5 @@
 {
-  "name": "applying-myself-extension",
+  "name": "@applyingmyself/extension",
   "version": "1.0.0",
   "description": "AI-powered cover letter generator Chrome extension",
   "scripts": {
@@ -26,10 +26,10 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "@app/convex-client": "workspace:*",
-    "@app/runtime-config": "workspace:*",
+    "@applyingmyself/convex-client": "workspace:*",
+    "@applyingmyself/runtime-config": "workspace:*",
     "@clerk/chrome-extension": "^2.9.9",
-    "convex": "^1.24.8",
+    "convex": "^1.32.0",
     "convex-helpers": "^0.1.94",
     "docx": "^9.5.1",
     "jspdf": "^3.0.1",

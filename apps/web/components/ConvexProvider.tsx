@@ -4,7 +4,7 @@ import React, { ReactNode } from "react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
-import { resolveRuntimeConfig } from "@app/runtime-config";
+import { resolveRuntimeConfig } from "@applyingmyself/runtime-config";
 
 // Create singleton ConvexReactClient to persist auth state
 let convexClientInstance: ConvexReactClient | null = null;

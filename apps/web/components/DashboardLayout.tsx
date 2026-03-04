@@ -15,7 +15,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 import { ApplyingMyselfLogo } from "./ApplyingMyselfLogo";
 import { useClerk } from "@clerk/nextjs";
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DocumentTextIcon, PlusIcon, ClockIcon, CheckCircleIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
-import { api } from '@app/convex-client';
+import { api } from '@applyingmyself/convex-client';
 import { Dropdown } from "@/components/ui/Dropdown";
 import { type GenericId as Id } from "convex/values";
 

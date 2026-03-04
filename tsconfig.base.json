@@ -11,8 +11,8 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "@app/convex-client": ["packages/convex-client/src/index.d.ts"],
-      "@app/runtime-config": ["packages/runtime-config/src/index.d.ts"]
+      "@applyingmyself/convex-client": ["packages/convex-client/src/index.d.ts"],
+      "@applyingmyself/runtime-config": ["packages/runtime-config/src/index.d.ts"]
     }
   }
 }

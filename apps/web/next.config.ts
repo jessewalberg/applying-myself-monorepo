@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
 
   // Image optimization
-  transpilePackages: ["@app/convex-client", "@app/runtime-config"],
+  transpilePackages: ["@applyingmyself/convex-client", "@applyingmyself/runtime-config"],
 
   // Image optimization
   images: {
