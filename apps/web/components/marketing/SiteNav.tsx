@@ -46,18 +46,18 @@ export function SiteNav() {
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8">
-          <a
-            href="#how-it-works"
+          <Link
+            href="/#how-it-works"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             How it Works
-          </a>
-          <a
-            href="#examples"
+          </Link>
+          <Link
+            href="/#examples"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Examples
-          </a>
+          </Link>
           {isSignedIn && (
             <Link
               href="/history"
@@ -119,20 +119,20 @@ export function SiteNav() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border px-6 py-4 space-y-3">
-          <a
-            href="#how-it-works"
+          <Link
+            href="/#how-it-works"
             className="block text-sm text-muted-foreground hover:text-foreground"
             onClick={() => setMobileOpen(false)}
           >
             How it Works
-          </a>
-          <a
-            href="#examples"
+          </Link>
+          <Link
+            href="/#examples"
             className="block text-sm text-muted-foreground hover:text-foreground"
             onClick={() => setMobileOpen(false)}
           >
             Examples
-          </a>
+          </Link>
           {isSignedIn ? (
             <>
               <Link

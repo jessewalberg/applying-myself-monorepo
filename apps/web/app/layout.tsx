@@ -46,7 +46,6 @@ export const metadata: Metadata = {
   applicationName: "Applying Myself",
   generator: "Next.js",
   referrer: "origin-when-cross-origin",
-  colorScheme: "dark",
   robots: {
     index: true,
     follow: true,
@@ -103,9 +102,8 @@ export const metadata: Metadata = {
   },
   category: "technology",
   classification: "Business Software",
-  other: {
-    "google-site-verification": "your-google-site-verification-code",
-  },
+  // Set google-site-verification after registering with Google Search Console:
+  // other: { "google-site-verification": "YOUR_CODE_HERE" },
 };
 
 export const viewport: Viewport = {

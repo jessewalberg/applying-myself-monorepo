@@ -12,7 +12,6 @@ import {
   Trash2,
   ArrowLeft,
   Sparkles,
-  X,
 } from "lucide-react";
 import { Button } from "@applyingmyself/ui/components/button";
 import {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@applyingmyself/ui/components/button";
 import { Badge } from "@applyingmyself/ui/components/badge";
 import { Textarea } from "@applyingmyself/ui/components/textarea";
 import { Card, CardContent } from "@applyingmyself/ui/components/card";
-import { Upload } from "lucide-react";
+import { Upload, CheckCircle2 } from "lucide-react";
+import { homepageDraft } from "@/lib/homepageDraft";
 
 const SAMPLE_LETTER = `Dear Hiring Manager,
 
@@ -76,8 +78,47 @@ function CountUp({ target, duration = 2000 }: { target: number; duration?: numbe
   return <>{count.toLocaleString()}</>;
 }
 
+const ACCEPTED_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export function HeroSection() {
+  const router = useRouter();
   const { displayed, done } = useTyping(SAMPLE_LETTER);
+  const [dragOver, setDragOver] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [jobDescription, setJobDescription] = useState("");
+  const jobDescRef = useRef(jobDescription);
+  jobDescRef.current = jobDescription;
+
+  const navigateToGenerate = useCallback(() => {
+    // Save whatever the user has typed so far
+    if (jobDescRef.current.trim()) {
+      homepageDraft.setJobDescription(jobDescRef.current.trim());
+    }
+    router.push("/generate");
+  }, [router]);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      if (!ACCEPTED_TYPES.includes(file.type)) return;
+      setResumeFile(file);
+      homepageDraft.setResumeFile(file);
+      // Give user a brief moment to see the confirmation, then navigate
+      setTimeout(() => navigateToGenerate(), 600);
+    },
+    [navigateToGenerate],
+  );
+
+  const handleSeeHowItWorks = () => {
+    const target = document.getElementById("how-it-works");
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", "#how-it-works");
+  };
 
   return (
     <section className="relative min-h-screen pt-24 pb-16 overflow-hidden">
@@ -106,8 +147,8 @@ export function HeroSection() {
             className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl opacity-0 animate-fade-up"
             style={{ animationDelay: "150ms" }}
           >
-            Paste a job description. Get a tailored cover letter in 30 seconds.
-            No signup required.
+            Paste a job description. Get a tailored cover letter in 30 seconds,
+            then track every application in one dashboard.
           </p>
         </div>
 
@@ -127,17 +168,58 @@ export function HeroSection() {
                   placeholder="Paste the job description here..."
                   className="min-h-[180px] bg-background/50 text-foreground placeholder:text-muted-foreground resize-none"
                   rows={8}
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
                 />
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex-1 border-2 border-dashed border-border/60 rounded-lg p-4 text-center hover:border-primary/40 transition-colors cursor-pointer">
-                  <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                  <span className="text-sm text-muted-foreground">
-                    Drop resume or{" "}
-                    <span className="text-primary font-medium">browse</span>
-                  </span>
-                </div>
+                <label
+                  className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer block ${
+                    resumeFile
+                      ? "border-green-500/60 bg-green-500/5"
+                      : dragOver
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60 hover:border-primary/40"
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFile(file);
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFile(file);
+                    }}
+                  />
+                  {resumeFile ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto mb-1" />
+                      <span className="text-sm text-green-400 font-medium truncate block">
+                        {resumeFile.name}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
+                      <span className="text-sm text-muted-foreground">
+                        Drop resume or{" "}
+                        <span className="text-primary font-medium">browse</span>
+                      </span>
+                    </>
+                  )}
+                </label>
                 <Badge variant="outline" className="text-xs whitespace-nowrap">
                   or connect LinkedIn
                 </Badge>
@@ -172,13 +254,24 @@ export function HeroSection() {
           className="opacity-0 animate-fade-up"
           style={{ animationDelay: "600ms" }}
         >
-          <Button
-            asChild
-            size="lg"
-            className="text-base px-8 h-12 hover:animate-glow-pulse"
-          >
-            <Link href="/generate">Generate Your Cover Letter &rarr;</Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="lg"
+              className="text-base px-8 h-12 hover:animate-glow-pulse"
+              onClick={navigateToGenerate}
+            >
+              Generate Your Cover Letter &rarr;
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="text-base px-8 h-12"
+              onClick={handleSeeHowItWorks}
+            >
+              See how it works
+            </Button>
+          </div>
         </div>
 
         {/* Social proof */}

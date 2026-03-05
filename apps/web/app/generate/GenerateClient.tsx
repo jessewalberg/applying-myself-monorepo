@@ -7,7 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@applyingmyself/convex-client";
 import { type GenericId as Id } from "convex/values";
-import { Copy, Download, RotateCcw, Save, ArrowLeft, Sparkles, FileText } from "lucide-react";
+import { Copy, Download, RotateCcw, Save, ArrowLeft, Sparkles, FileText, Upload, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@applyingmyself/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@applyingmyself/ui/components/card";
 import { Textarea } from "@applyingmyself/ui/components/textarea";
@@ -21,12 +21,20 @@ import {
   SelectContent,
   SelectItem,
 } from "@applyingmyself/ui/components/select";
-import { Separator } from "@applyingmyself/ui/components/separator";
 import { useCopyToClipboard } from "@applyingmyself/ui/hooks/useCopyToClipboard";
 import { SiteNav } from "@/components/marketing/SiteNav";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
+import { homepageDraft } from "@/lib/homepageDraft";
 
 type GenerateState = "idle" | "generating" | "done" | "error";
+
+type ResumeListItem = {
+  _id: string;
+  filename: string;
+  createdAt: number;
+};
+
+const EMPTY_RESUMES: ResumeListItem[] = [];
 
 export function GenerateClient() {
   const { isSignedIn } = useAuth();
@@ -48,11 +56,15 @@ export function GenerateClient() {
     api.resumes.getResumes,
     isSignedIn && profileEnsured ? {} : "skip"
   );
-  const resumes = resumesQuery?.resumes || [];
+  const resumes = resumesQuery?.resumes ?? EMPTY_RESUMES;
   const userProfile = useQuery(
     api.userHelpers.getUserProfile,
     isSignedIn && profileEnsured ? {} : "skip"
   );
+
+  // Convex mutations for resume upload from homepage
+  const uploadResume = useMutation(api.resumes.upload);
+  const completeUpload = useMutation(api.resumes.completeUpload);
 
   // Form state
   const [jobTitle, setJobTitle] = useState("");
@@ -60,13 +72,74 @@ export function GenerateClient() {
   const [jobDescription, setJobDescription] = useState("");
   const [tone, setTone] = useState("professional");
   const [length, setLength] = useState("medium");
+  const [trackApplication, setTrackApplication] = useState(true);
   const [selectedResumeId, setSelectedResumeId] = useState("");
   const [state, setState] = useState<GenerateState>("idle");
   const [generatedContent, setGeneratedContent] = useState("");
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Auto-select most recent resume
+  // Pending resume file carried from homepage (for users who aren't signed in yet)
+  const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeUploadDone, setResumeUploadDone] = useState(false);
+
+  // Consume draft data from homepage on mount
+  useEffect(() => {
+    const draft = homepageDraft.consume();
+    if (draft.jobDescription) {
+      setJobDescription(draft.jobDescription);
+    }
+    if (draft.resumeFile) {
+      setPendingResumeFile(draft.resumeFile);
+    }
+  }, []);
+
+  // Auto-upload pending resume once the user is signed in
+  useEffect(() => {
+    if (!pendingResumeFile || !isSignedIn || !profileEnsured || resumeUploading || resumeUploadDone) return;
+
+    const doUpload = async () => {
+      setResumeUploading(true);
+      try {
+        const file = pendingResumeFile;
+        const { uploadUrl } = await uploadResume({
+          filename: file.name.replace(/\.[^/.]+$/, ""),
+          fileSize: file.size,
+          mimeType: file.type,
+        });
+
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!result.ok) throw new Error(`Upload failed: ${result.statusText}`);
+
+        const { storageId } = await result.json();
+        const { resumeId } = await completeUpload({
+          filename: file.name.replace(/\.[^/.]+$/, ""),
+          fileSize: file.size,
+          mimeType: file.type,
+          storageId,
+        });
+
+        setSelectedResumeId(resumeId);
+        setResumeUploadDone(true);
+      } catch (err) {
+        console.error("Auto-upload failed:", err);
+        // Don't block the user — they can still pick a resume manually
+      } finally {
+        setResumeUploading(false);
+        setPendingResumeFile(null);
+      }
+    };
+
+    doUpload();
+  }, [pendingResumeFile, isSignedIn, profileEnsured, resumeUploading, resumeUploadDone, uploadResume, completeUpload]);
+
+  // Auto-select most recent resume (if we didn't just upload one)
   useEffect(() => {
     if (resumes.length > 0 && !selectedResumeId) {
       const mostRecent = resumes.reduce((a: (typeof resumes)[number], b: (typeof resumes)[number]) =>
@@ -101,7 +174,7 @@ export function GenerateClient() {
           tone: tone as "professional" | "casual" | "enthusiastic",
           length: length as "short" | "medium" | "long",
         },
-        createJobApplication: false,
+        createJobApplication: trackApplication,
       });
 
       setGeneratedId(result.coverLetter._id);
@@ -207,13 +280,40 @@ export function GenerateClient() {
                   <CardTitle className="text-base">Options</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Pending resume upload indicator */}
+                  {resumeUploading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      <span className="text-sm text-foreground">Uploading your resume...</span>
+                    </div>
+                  )}
+                  {resumeUploadDone && (
+                    <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-sm text-foreground">Resume uploaded from homepage</span>
+                    </div>
+                  )}
+                  {/* Not-signed-in user with a pending file */}
+                  {!isSignedIn && pendingResumeFile && (
+                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/70 p-3">
+                      <Upload className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        <span className="text-foreground font-medium">{pendingResumeFile.name}</span>
+                        {" "}&mdash;{" "}
+                        <Link href="/login?redirect=/generate" className="text-primary hover:underline">
+                          sign in
+                        </Link>{" "}
+                        to upload and generate.
+                      </span>
+                    </div>
+                  )}
                   {isSignedIn && resumes.length > 0 ? (
                     <div>
                       <Label>Resume</Label>
                       <Select
                         value={selectedResumeId}
                         onValueChange={setSelectedResumeId}
-                        disabled={state === "generating"}
+                        disabled={state === "generating" || resumeUploading}
                       >
                         <SelectTrigger className="mt-1.5">
                           <SelectValue placeholder="Select a resume" />
@@ -227,7 +327,7 @@ export function GenerateClient() {
                         </SelectContent>
                       </Select>
                     </div>
-                  ) : isSignedIn ? (
+                  ) : isSignedIn && !resumeUploading ? (
                     <div className="text-sm text-muted-foreground">
                       No resumes uploaded.{" "}
                       <Link
@@ -238,7 +338,7 @@ export function GenerateClient() {
                       </Link>{" "}
                       to get started.
                     </div>
-                  ) : (
+                  ) : !isSignedIn && !pendingResumeFile ? (
                     <div className="text-sm text-muted-foreground">
                       <Link
                         href="/login?redirect=/generate"
@@ -248,7 +348,7 @@ export function GenerateClient() {
                       </Link>{" "}
                       to select a resume and generate.
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -286,6 +386,26 @@ export function GenerateClient() {
                       </Select>
                     </div>
                   </div>
+
+                  {isSignedIn && (
+                    <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          checked={trackApplication}
+                          onChange={(e) => setTrackApplication(e.target.checked)}
+                          disabled={state === "generating"}
+                        />
+                        <span className="text-sm text-secondary-foreground">
+                          Track this in Job Applications
+                          <span className="block text-xs text-muted-foreground mt-0.5">
+                            Automatically creates a job application entry after generation.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

@@ -123,11 +123,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Mobile sidebar */}
       <div
         id="sidebar"
-        className={`fixed top-0 left-0 z-50 h-full w-80 max-w-xs bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 left-0 z-50 h-full w-80 max-w-xs bg-card shadow-2xl shadow-black/30 transform transition-transform duration-300 ease-in-out lg:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         <div className="flex flex-col h-full">
@@ -135,7 +135,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           <div className="flex justify-end p-4">
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="h-6 w-6" />
@@ -143,9 +143,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </div>
 
           {/* Mobile sidebar header */}
-          <div className="flex flex-shrink-0 items-center px-4 pb-4 border-b border-gray-200">
+          <div className="flex flex-shrink-0 items-center px-4 pb-4 border-b border-border">
             <ApplyingMyselfLogo size="md" className="drop-shadow-sm" />
-            <span className="ml-2 text-xl font-bold text-gray-900">Applying Myself</span>
+            <span className="ml-2 text-xl font-bold text-foreground">Applying Myself</span>
           </div>
 
           {/* Mobile navigation */}
@@ -158,12 +158,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     key={item.name}
                     href={item.href}
                     className={`group flex items-center px-2 py-3 text-base font-medium rounded-md transition-colors duration-150 ${isActive
-                      ? 'bg-purple-50 text-purple-700 border-r-4 border-purple-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-primary/10 text-primary border-r-4 border-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       }`}
                     onClick={() => setSidebarOpen(false)}
                   >
-                    <item.icon className={`mr-4 h-6 w-6 flex-shrink-0 ${isActive ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-500'
+                    <item.icon className={`mr-4 h-6 w-6 flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                       }`} />
                     {item.name}
                   </Link>
@@ -172,15 +172,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </nav>
 
             {/* Mobile user info */}
-            <div className="mt-6 pt-6 border-t border-gray-200 px-2">
+            <div className="mt-6 pt-6 border-t border-border px-2">
               <div className="flex items-center px-2 py-3">
-                <User className="h-8 w-8 rounded-full bg-gray-200 p-1" />
+                <User className="h-8 w-8 rounded-full bg-muted p-1 text-muted-foreground" />
                 <div className="ml-3">
-                  <p className="text-base font-medium text-gray-900">
+                  <p className="text-base font-medium text-foreground">
                     {user?.name || user?.email || 'User'}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    {user?.credits || 0} credits • {user?.plan || 'None'}
+                  <p className="text-sm text-muted-foreground">
+                    {user?.credits || 0} credits &middot; {user?.plan || 'None'}
                   </p>
                 </div>
               </div>
@@ -189,9 +189,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   setSidebarOpen(false);
                   handleSignOut();
                 }}
-                className="w-full flex items-center px-2 py-3 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
+                className="w-full flex items-center px-2 py-3 text-base font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150"
               >
-                <LogOut className="mr-4 h-6 w-6 flex-shrink-0 text-gray-400" />
+                <LogOut className="mr-4 h-6 w-6 flex-shrink-0 text-muted-foreground" />
                 Sign out
               </button>
             </div>
@@ -201,13 +201,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:z-30">
-        <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex flex-shrink-0 items-center px-4 py-4 border-b border-gray-200">
+        <div className="flex min-h-0 flex-1 flex-col bg-card border-r border-border">
+          <div className="flex flex-shrink-0 items-center px-4 py-4 border-b border-border">
             <ApplyingMyselfLogo size="md" className="drop-shadow-sm" />
-            <span className="ml-2 text-xl font-bold text-gray-900">Applying Myself</span>
+            <span className="ml-2 text-xl font-bold text-foreground">Applying Myself</span>
           </div>
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-            <nav className="mt-5 flex-1 space-y-1 bg-white px-2">
+            <nav className="mt-5 flex-1 space-y-1 px-2">
               {navigation.map((item) => {
                 const isActive = isActiveRoute(item.href);
                 return (
@@ -215,11 +215,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     key={item.name}
                     href={item.href}
                     className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium transition-colors duration-150 ${isActive
-                      ? 'bg-purple-50 text-purple-700 border-r-4 border-purple-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-primary/10 text-primary border-r-4 border-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       }`}
                   >
-                    <item.icon className={`mr-3 h-6 w-6 flex-shrink-0 ${isActive ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-500'
+                    <item.icon className={`mr-3 h-6 w-6 flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                       }`} />
                     {item.name}
                   </Link>
@@ -233,11 +233,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Mobile header */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 pl-1 pt-1 sm:pl-3 sm:pt-3 lg:hidden">
+        <div className="sticky top-0 z-10 bg-card border-b border-border pl-1 pt-1 sm:pl-3 sm:pt-3 lg:hidden">
           <button
             id="menu-button"
             type="button"
-            className="-ml-0.5 -mt-0.5 inline-flex h-12 w-12 items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            className="-ml-0.5 -mt-0.5 inline-flex h-12 w-12 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
@@ -245,9 +245,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         </div>
 
         {/* Desktop header */}
-        <div className="hidden lg:flex lg:items-center lg:justify-between lg:px-8 lg:py-4 lg:border-b lg:border-gray-200 lg:bg-white">
+        <div className="hidden lg:flex lg:items-center lg:justify-between lg:px-8 lg:py-4 lg:border-b lg:border-border lg:bg-card">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+            <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
           </div>
 
           {/* User menu */}
@@ -255,30 +255,30 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <button
               id="user-button"
               type="button"
-              className="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="flex max-w-xs items-center rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
             >
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
-                  <User className="h-8 w-8 rounded-full bg-gray-200 p-1" />
+                  <User className="h-8 w-8 rounded-full bg-muted p-1 text-muted-foreground" />
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground">
                       {user?.name || user?.email || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {user?.credits || 0} credits • {user?.plan || 'None'}
+                    <p className="text-xs text-muted-foreground">
+                      {user?.credits || 0} credits &middot; {user?.plan || 'None'}
                     </p>
                   </div>
                 </div>
-                <ChevronDown className="h-4 w-4 text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </div>
             </button>
 
             {userMenuOpen && (
-              <div id="user-menu" className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+              <div id="user-menu" className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-card border border-border py-1 shadow-lg shadow-black/20 focus:outline-none">
                 <Link
                   href="/dashboard/settings/profile"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
                   onClick={() => setUserMenuOpen(false)}
                 >
                   <User className="inline h-4 w-4 mr-2" />
@@ -286,7 +286,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </Link>
                 <Link
                   href="/dashboard/settings"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
                   onClick={() => setUserMenuOpen(false)}
                 >
                   <Settings className="inline h-4 w-4 mr-2" />
@@ -297,7 +297,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     setUserMenuOpen(false);
                     handleSignOut();
                   }}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
                 >
                   <LogOut className="inline h-4 w-4 mr-2" />
                   Sign out
@@ -308,7 +308,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 bg-gray-50 min-h-screen">
+        <main className="flex-1 bg-background min-h-screen">
           {children}
         </main>
       </div>
@@ -316,4 +316,4 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   );
 };
 
-export default DashboardLayout; 
+export default DashboardLayout;

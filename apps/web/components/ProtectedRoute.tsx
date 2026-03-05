@@ -31,10 +31,10 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   // Show loading during mounting or auth loading
   if (!mounted || !isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -47,4 +47,4 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
 
   // Only render children if authenticated
   return <>{children}</>;
-} 
+}

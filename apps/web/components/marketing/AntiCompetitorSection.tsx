@@ -13,8 +13,8 @@ const comparisons = [
     good: "Matches your voice from your actual resume",
   },
   {
-    bad: "Sign up before you can try",
-    good: "Generate first. Decide later.",
+    bad: "No way to track where you applied",
+    good: "Built-in dashboard to track every application.",
   },
 ];
 

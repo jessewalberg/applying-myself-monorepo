@@ -17,7 +17,7 @@ export function FinalCTASection() {
             <Link href="/generate">Start Writing &rarr;</Link>
           </Button>
           <p className="text-sm text-muted-foreground">
-            No account needed. No credit card. No catch.
+            Paste a job description and get a tailored letter in seconds.
           </p>
         </div>
       </div>

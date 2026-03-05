@@ -16,8 +16,8 @@ const steps = [
   },
   {
     icon: Sparkles,
-    title: "Get your letter in seconds",
-    description: "A tailored cover letter that sounds like you — not a robot.",
+    title: "Get your letter & track it",
+    description: "A tailored cover letter that sounds like you — plus a dashboard to track every application.",
   },
 ];
 
@@ -25,7 +25,7 @@ export function HowItWorksSection() {
   const { ref, isVisible } = useScrollAnimation({ threshold: 0.1 });
 
   return (
-    <section id="how-it-works" className="py-24 px-6">
+    <section id="how-it-works" className="scroll-mt-24 py-24 px-6">
       <div className="max-w-7xl mx-auto">
         <h2
           ref={ref}
