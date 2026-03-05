@@ -80,7 +80,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** 18+ and npm
+- **Bun** 1.3.10+
 - **Convex Account** - [Sign up here](https://convex.dev)
 - **Environment Variables** - See [Environment Setup](#-environment-setup)
 
@@ -88,7 +88,7 @@
 ```bash
 git clone https://github.com/yourusername/applying-myself.git
 cd applying-myself/applying-myself-next
-npm install
+bun install
 ```
 
 ### 2. Environment Setup
@@ -118,7 +118,7 @@ FROM_EMAIL=dev@yourdomain.com
 
 ### 3. Start Development
 ```bash
-npm run dev
+bun run dev
 ```
 
 Visit [https://localhost:3000](https://localhost:3000) 🚀
@@ -155,14 +155,14 @@ applying-myself-next/
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | 🔥 Start development server with HTTPS |
-| `npm run build` | 🏗️ Build for production |
-| `npm run start` | ▶️ Start production server |
-| `npm run lint` | 🔍 Run ESLint |
-| `npm run generate-api` | 🔄 Generate Convex API types |
-| `npm run dev:staging` | 🧪 Start staging development |
-| `npm run deploy:staging` | 🚀 Deploy to staging |
-| `npm run deploy:production` | 🚀 Deploy to production |
+| `bun run dev` | 🔥 Start development server with HTTPS |
+| `bun run build` | 🏗️ Build for production |
+| `bun run start` | ▶️ Start production server |
+| `bun run lint` | 🔍 Run ESLint |
+| `bun run generate-api` | 🔄 Generate Convex API types |
+| `bun run dev:staging` | 🧪 Start staging development |
+| `bun run deploy:staging` | 🚀 Deploy to staging |
+| `bun run deploy:production` | 🚀 Deploy to production |
 
 ---
 

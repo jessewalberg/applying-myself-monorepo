@@ -12,37 +12,39 @@ export default function SettingsLayout({
   const pathname = usePathname();
 
   const tabs = [
-    { 
-      id: "profile", 
-      name: "Profile", 
-      icon: UserIcon, 
-      href: "/dashboard/settings/profile" 
+    {
+      id: "profile",
+      name: "Profile",
+      icon: UserIcon,
+      href: "/dashboard/settings/profile"
     },
-    { 
-      id: "notifications", 
-      name: "Notifications", 
-      icon: BellIcon, 
-      href: "/dashboard/settings/notifications" 
+    {
+      id: "notifications",
+      name: "Notifications",
+      icon: BellIcon,
+      href: "/dashboard/settings/notifications"
     },
-    { 
-      id: "security", 
-      name: "Security", 
-      icon: ShieldCheckIcon, 
-      href: "/dashboard/settings/security" 
+    {
+      id: "security",
+      name: "Security",
+      icon: ShieldCheckIcon,
+      href: "/dashboard/settings/security"
     },
-    { 
-      id: "billing", 
-      name: "Billing", 
-      icon: CreditCardIcon, 
-      href: "/dashboard/settings/billing" 
+    {
+      id: "billing",
+      name: "Billing",
+      icon: CreditCardIcon,
+      href: "/dashboard/settings/billing"
     },
   ];
 
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <h1 className="font-display text-3xl text-foreground">
+          Settings<span className="text-primary">.</span>
+        </h1>
+        <p className="mt-2 text-muted-foreground">
           Manage your account settings and preferences.
         </p>
       </div>
@@ -57,8 +59,8 @@ export default function SettingsLayout({
                 href={tab.href}
                 className={`w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                   pathname === tab.href
-                    ? "bg-purple-50 text-purple-700 border border-purple-200"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <tab.icon className="w-5 h-5" />
@@ -75,4 +77,4 @@ export default function SettingsLayout({
       </div>
     </div>
   );
-} 
+}

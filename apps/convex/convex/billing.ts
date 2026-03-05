@@ -5,10 +5,15 @@ import type { Id } from "./_generated/dataModel";
 import { getCurrentUserProfile } from "./userHelpers";
 import { SUBSCRIPTION_STATUS, PAYMENT_STATUS, PAGINATION } from "./constants";
 
+function normalizePlan(plan: unknown): "none" | "starter" | "pro" | "hired" {
+  if (plan === "none" || plan === "starter" || plan === "pro" || plan === "hired") return plan;
+  return "none";
+}
+
 // Pricing plans configuration
 export const PRICING_PLANS = {
-  free: {
-    id: 'free',
+  none: {
+    id: 'none',
     name: 'Free',
     description: 'Get started with basic features',
     price: 0,
@@ -53,9 +58,9 @@ export const PRICING_PLANS = {
     ],
     popular: true
   },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Enterprise',
+  hired: {
+    id: 'hired',
+    name: 'Hired',
     description: 'For teams and recruiters',
     price: 49.99,
     credits: 500,
@@ -130,7 +135,7 @@ export const getCurrentSubscription = query({
     if (!subscription) {
       return {
         hasSubscription: false,
-        plan: userProfile.plan,
+        plan: normalizePlan(userProfile.plan),
         status: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: null,
@@ -139,7 +144,7 @@ export const getCurrentSubscription = query({
 
     return {
       hasSubscription: true,
-      plan: userProfile.plan,
+      plan: normalizePlan(userProfile.plan),
       subscription: {
         id: subscription._id,
         stripeSubscriptionId: subscription.stripeSubscriptionId,
@@ -297,9 +302,9 @@ export const cancelSubscription = mutation({
         status: SUBSCRIPTION_STATUS.CANCELED,
       });
 
-      // Update user plan to free
+      // Update user plan to none tier
       await ctx.db.patch(userProfile._id, {
-        plan: "free",
+        plan: "none",
         subscriptionStatus: SUBSCRIPTION_STATUS.CANCELED,
         updatedAt: Date.now(),
       });
@@ -510,5 +515,44 @@ export const handleStripeWebhook = mutation({
     }
 
     return { received: true };
+  },
+});
+
+export const reactivateSubscription = mutation({
+  args: {},
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx) => {
+    const userProfile = await getCurrentUserProfile(ctx);
+
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userProfileId", userProfile._id))
+      .order("desc")
+      .first();
+
+    if (!subscription) {
+      throw new ConvexError("No subscription found to reactivate");
+    }
+
+    await ctx.db.patch(subscription._id, {
+      status: SUBSCRIPTION_STATUS.ACTIVE,
+      cancelAtPeriodEnd: false,
+      canceledAt: undefined,
+      updatedAt: Date.now(),
+    });
+
+    await ctx.db.patch(userProfile._id, {
+      plan: normalizePlan(userProfile.plan) === "none" ? "starter" : normalizePlan(userProfile.plan),
+      subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: "Subscription reactivated successfully",
+    };
   },
 });

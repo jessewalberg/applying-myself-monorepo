@@ -1,410 +1,198 @@
-import React, { useState, useEffect } from 'react';
-import {
-  FileText,
-  Briefcase,
-  Download,
-  Copy,
-  Settings,
-  History,
-  CreditCard,
-  User,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  LogOut,
-  CheckCircle,
-  Loader,
-  ExternalLink
-} from 'lucide-react';
-import { StorageService } from '@/services/storage';
-import { convexApi } from '@/services/convexApi';
-import TabNavigation from './components/TabNavigation';
-import GenerateTab from './components/GenerateTab';
-import HistoryTab from './components/HistoryTab';
-import SettingsTab from './components/SettingsTab';
-import ApplyingMyselfLogo from './components/ApplyingMyselfLogo';
-import EnvironmentBanner from '../components/EnvironmentBanner';
-import type { User as UserType } from '@/types';
-import './popup.css';
+"use client";
 
-type TabType = 'generate' | 'history' | 'settings';
+import React, { useEffect, lazy, Suspense, useState } from "react";
+import { FileText, History, Settings, LogOut, Coins, Loader2 } from "lucide-react";
+import { SignIn } from "@clerk/chrome-extension";
+import CONFIG from "@/config";
+import { useSession } from "@/features/auth/useSession";
+import { trackExtensionEvent } from "@/core/analytics/track";
+import ApplyingMyselfLogo from "./components/ApplyingMyselfLogo";
+import EnvironmentBanner from "../components/EnvironmentBanner";
+import type { User as UserType } from "@/types";
 
-// Simple analytics tracking for Chrome extension
-const trackExtensionEvent = (eventName: string, properties: Record<string, string> = {}) => {
-  try {
-    // Try to send analytics event to background script or API
-    if (chrome?.runtime?.sendMessage) {
-      chrome.runtime.sendMessage({
-        type: 'ANALYTICS_EVENT',
-        eventName,
-        properties: {
-          source: 'chrome_extension_popup',
-          timestamp: new Date().toISOString(),
-          ...properties
-        }
-      });
-    }
+const GenerateTab = lazy(() => import("./components/GenerateTab"));
+const HistoryTab = lazy(() => import("./components/HistoryTab"));
+const SettingsTab = lazy(() => import("./components/SettingsTab"));
 
-    // Also log to console for debugging
-    console.log('Extension Analytics:', eventName, properties);
-  } catch (error) {
-    console.warn('Failed to track extension event:', error);
-  }
-};
+type TabType = "generate" | "history" | "settings";
+
+const TABS = [
+  { id: "generate" as const, label: "Generate", icon: FileText },
+  { id: "history" as const, label: "History", icon: History },
+  { id: "settings" as const, label: "Settings", icon: Settings },
+];
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('generate');
-  const [user, setUser] = useState<UserType | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("generate");
+  const { user, setUser, isAuthenticated, loading, initialize, logout } =
+    useSession();
 
-  const handleTabChange = (tab: string): void => {
-    const newTab = tab as TabType;
-
-    // Track tab change
-    trackExtensionEvent('extension_tab_changed', {
+  const handleTabChange = (tab: TabType): void => {
+    void trackExtensionEvent("extension_tab_changed", {
       from_tab: activeTab,
-      to_tab: newTab,
-      user_plan: user?.plan || 'none',
-      user_credits: (user?.credits || 0).toString()
+      to_tab: tab,
+      user_plan: user?.plan || "none",
+      user_credits: (user?.credits || 0).toString(),
     });
-
-    setActiveTab(newTab);
+    setActiveTab(tab);
   };
 
   useEffect(() => {
-    // Track popup opened
-    trackExtensionEvent('extension_popup_opened');
-    initializeApp();
-  }, []);
-
-  const initializeApp = async (): Promise<void> => {
-    try {
-      setLoading(true);
-
-      // Initialize authentication from storage
-      const isAuthenticated = await convexApi.initializeFromStorage();
-
-      if (isAuthenticated) {
-        // Get user profile to populate the UI
-        const userProfile = await convexApi.getUserProfile();
-
-        if (userProfile) {
-          const userData = {
-            id: userProfile._id,
-            email: userProfile.email,
-            name: userProfile.name,
-            credits: userProfile.credits || 0,
-            plan: userProfile.plan,
-          };
-
-          // Store user data for faster loading next time
-          await StorageService.setUserData(userData);
-
-          setUser(userData);
-          setIsAuthenticated(true);
-
-          // Track successful authentication from storage
-          trackExtensionEvent('extension_auth_restored', {
-            user_plan: userData.plan || 'none',
-            user_credits: userData.credits.toString(),
-            has_name: userData.name ? 'true' : 'false'
-          });
-        } else {
-          // Token is invalid
-          await handleLogout();
-        }
-      } else {
-        // Track unauthenticated session
-        trackExtensionEvent('extension_session_unauthenticated');
-      }
-    } catch (error) {
-      console.error('Failed to initialize app:', error);
-
-      // Track initialization failure
-      trackExtensionEvent('extension_init_failed', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      setIsAuthenticated(false);
-      // Clear invalid token
-      await StorageService.clearToken();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async (credentials: { email: string; password: string }): Promise<void> => {
-    type SignInResponse = { success: boolean; token?: unknown; error?: string };
-
-    // Track login attempt
-    trackExtensionEvent('extension_login_attempted', {
-      email: credentials.email
-    });
-
-    try {
-      const response: SignInResponse = await convexApi.signIn(credentials);
-      if (response.success && typeof response.token === 'string') {
-        await StorageService.setToken(response.token);
-        // Token is already set in convexApi.signIn(), so we can directly get user profile
-        const userProfile = await convexApi.getUserProfile();
-
-        if (userProfile) {
-          const userData = {
-            id: userProfile._id,
-            email: userProfile.email,
-            name: userProfile.name,
-            credits: userProfile.credits || 0,
-            plan: userProfile.plan,
-          };
-
-          // Store user data for persistence
-          await StorageService.setUserData(userData);
-
-          setUser(userData);
-          setIsAuthenticated(true);
-
-          // Track successful login
-          trackExtensionEvent('extension_login_successful', {
-            user_plan: userData.plan || 'none',
-            user_credits: userData.credits.toString(),
-            has_name: userData.name ? 'true' : 'false'
-          });
-        } else {
-          throw new Error('Failed to get user profile');
-        }
-      } else {
-        throw new Error(response.error || 'Login failed');
-      }
-    } catch (error) {
-      // Track login failure
-      trackExtensionEvent('extension_login_failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        email: credentials.email
-      });
-
-      throw error;
-    }
-  };
+    void trackExtensionEvent("extension_popup_opened");
+    void initialize();
+  }, [initialize]);
 
   const handleLogout = async (): Promise<void> => {
-    // Track logout
-    trackExtensionEvent('extension_logout', {
-      user_plan: user?.plan || 'none',
-      user_credits: (user?.credits || 0).toString()
+    void trackExtensionEvent("extension_logout", {
+      user_plan: user?.plan || "none",
+      user_credits: (user?.credits || 0).toString(),
     });
-
-    await convexApi.signOut();
-    await StorageService.clearAll(); // Clear all stored data including user data
-    setUser(null);
-    setIsAuthenticated(false);
+    await logout();
   };
 
-  // Set data attribute for CSS targeting
   useEffect(() => {
-    document.body.setAttribute('data-extension-popup', 'true');
+    document.body.setAttribute("data-extension-popup", "true");
   }, []);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-background text-foreground">
+        <Loader2 className="w-6 h-6 text-primary animate-spin mb-3" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen onLogin={handleLogin} />;
+    return <AuthScreen />;
   }
 
   return (
-    <div className="extension-container">
+    <div className="flex flex-col h-[520px] w-[380px] bg-background text-foreground overflow-hidden">
       <EnvironmentBanner />
-      <Header user={user} onLogout={handleLogout} />
 
-      <TabNavigation
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        user={user}
-      />
-
-      <div className="tab-content">
-        {activeTab === 'generate' && (
-          <GenerateTab user={user} onUserUpdate={setUser} />
-        )}
-        {activeTab === 'history' && (
-          <HistoryTab user={user} refreshTrigger={activeTab} />
-        )}
-        {activeTab === 'settings' && (
-          <SettingsTab user={user} onUserUpdate={setUser} />
-        )}
-      </div>
-    </div>
-  );
-};
-
-const LoadingSpinner: React.FC = () => (
-  <div className="loading-container">
-    <div className="spinner"></div>
-    <p>Loading Applying Myself...</p>
-  </div>
-);
-
-interface AuthScreenProps {
-  onLogin: (credentials: { email: string; password: string }) => Promise<void>;
-}
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      if (isLogin) {
-        await onLogin({ email: formData.email, password: formData.password });
-      } else {
-        // Track signup attempt
-        trackExtensionEvent('extension_signup_attempted', {
-          email: formData.email,
-          has_name: formData.name ? 'true' : 'false'
-        });
-
-        await convexApi.signUp(formData);
-        await onLogin({ email: formData.email, password: formData.password });
-
-        // Track successful signup
-        trackExtensionEvent('extension_signup_successful', {
-          email: formData.email
-        });
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Authentication failed';
-      setError(errorMessage);
-
-      // Track auth failure
-      trackExtensionEvent(`extension_${isLogin ? 'login' : 'signup'}_failed`, {
-        error: errorMessage,
-        email: formData.email
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAuthToggle = () => {
-    const newMode = !isLogin;
-
-    // Track auth mode toggle
-    trackExtensionEvent('extension_auth_mode_toggled', {
-      from_mode: isLogin ? 'login' : 'signup',
-      to_mode: newMode ? 'login' : 'signup'
-    });
-
-    setIsLogin(newMode);
-    setError('');
-  };
-
-  return (
-    <div className="auth-container">
-      <div className="auth-header">
-        <div className="brand">
-          <ApplyingMyselfLogo className="brand-icon" size={32} />
-          <h1>Applying Myself</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
+        <div className="flex items-center gap-2">
+          <ApplyingMyselfLogo className="" size={20} />
+          <span className="font-display italic text-sm text-foreground">
+            applying myself
+          </span>
+          <span className="text-primary text-lg leading-none">.</span>
         </div>
-        <p>AI-Powered Cover Letter Generator</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="auth-form">
-        {!isLogin && (
-          <div className="form-group">
-            <label>Full Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter your name"
-              required
-            />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+            <Coins className="w-3 h-3 text-primary" />
+            <span className="text-xs font-semibold text-primary">
+              {user?.credits ?? 0}
+            </span>
           </div>
-        )}
-
-        <div className="form-group">
-          <label>Email</label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="Enter your email"
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Password</label>
-          <input
-            type="password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            placeholder="Enter your password"
-            required
-          />
-        </div>
-
-        {error && (
-          <div className="error-message">
-            <AlertCircle size={16} />
-            {error}
-          </div>
-        )}
-
-        <button type="submit" className="auth-button" disabled={loading}>
-          {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Sign Up')}
-        </button>
-
-        <div className="auth-switch">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
           <button
-            type="button"
-            className="link-button"
-            onClick={handleAuthToggle}
-            disabled={loading}
+            onClick={handleLogout}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            title="Sign out"
           >
-            {isLogin ? 'Sign Up' : 'Sign In'}
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
-      </form>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex border-b border-border bg-card shrink-0">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2 ${
+                isActive
+                  ? "text-primary border-primary bg-primary/5"
+                  : "text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary/50"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-4">
+        <Suspense fallback={<TabLoadingFallback />}>
+          {activeTab === "generate" && (
+            <GenerateTab user={user} onUserUpdate={setUser} />
+          )}
+          {activeTab === "history" && (
+            <HistoryTab user={user} refreshTrigger={activeTab} />
+          )}
+          {activeTab === "settings" && (
+            <SettingsTab user={user} onUserUpdate={setUser} />
+          )}
+        </Suspense>
+      </div>
     </div>
   );
 };
 
-interface HeaderProps {
-  user: UserType | null;
-  onLogout: () => Promise<void>;
-}
-
-const Header: React.FC<HeaderProps> = ({ user, onLogout }) => (
-  <div className="header">
-    <div className="brand">
-      <ApplyingMyselfLogo className="brand-icon" size={20} />
-      <span className="brand-text">Applying Myself</span>
-    </div>
-    <div className="user-info">
-      <User size={16} />
-      <span>{user?.name || user?.email || 'User'}</span>
-      <button className="user-menu" onClick={onLogout}>
-        <LogOut size={14} />
-      </button>
-    </div>
+const TabLoadingFallback: React.FC = () => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <Loader2 className="w-5 h-5 text-primary animate-spin mb-2" />
+    <p className="text-xs text-muted-foreground">Loading...</p>
   </div>
 );
 
-// Export the tracking function for use in other components
-export { trackExtensionEvent };
+const AuthScreen: React.FC = () => {
+  if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-background px-6 text-center">
+        <ApplyingMyselfLogo size={40} />
+        <h1 className="font-display italic text-lg text-foreground mt-4">
+          applying myself<span className="text-primary">.</span>
+        </h1>
+        <p className="text-sm text-destructive mt-3">
+          Missing Clerk publishable key.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full bg-background px-6">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute top-0 left-1/4 w-48 h-48 bg-primary/8 rounded-full blur-3xl" />
+
+      <div className="relative z-10 text-center mb-6">
+        <ApplyingMyselfLogo size={40} className="mx-auto" />
+        <h1 className="font-display italic text-xl text-foreground mt-3">
+          applying myself<span className="text-primary">.</span>
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Sign in to generate cover letters
+        </p>
+      </div>
+
+      <div className="relative z-10 w-full max-w-[300px] rounded-xl border border-border bg-card p-4">
+        <SignIn
+          fallbackRedirectUrl="/"
+          appearance={{
+            elements: {
+              card: "shadow-none border-0 w-full bg-transparent",
+              headerTitle: "text-foreground",
+              headerSubtitle: "text-muted-foreground",
+              socialButtonsBlockButton:
+                "bg-secondary border-border text-foreground hover:bg-secondary/80",
+              formFieldInput:
+                "bg-background border-border text-foreground",
+              footerActionLink: "text-primary hover:text-primary/80",
+            },
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 export default App;

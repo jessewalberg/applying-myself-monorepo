@@ -6,6 +6,12 @@ import { api } from "./_generated/api";
 import { CREDITS, PAGINATION, FILE_TYPES } from "./constants";
 import type { Doc, Id } from "./_generated/dataModel";
 
+type GenerateCoverLetterResult = {
+  coverLetter: Doc<"coverLetters">;
+  tokensUsed: number;
+  remainingCredits: number;
+};
+
 // Generate cover letter (creates placeholder, then schedules AI generation)
 export const generate = mutation({
   args: {
@@ -47,11 +53,7 @@ export const generate = mutation({
     tokensUsed: v.number(),
     remainingCredits: v.number(),
   }),
-  handler: async (ctx, args): Promise<{
-    coverLetter: Doc<"coverLetters">;
-    tokensUsed: number;
-    remainingCredits: number;
-  }> => {
+  handler: async (ctx, args): Promise<GenerateCoverLetterResult> => {
     const { extractedContent, resumeId, preferences } = args;
     
     // Get authenticated user profile
@@ -120,6 +122,87 @@ export const generate = mutation({
       tokensUsed: 0, // Will be updated when AI generation completes
       remainingCredits: newBalance,
     };
+  },
+});
+
+export const generateFromForm = mutation({
+  args: {
+    resumeId: v.id("resumes"),
+    jobTitle: v.string(),
+    companyName: v.string(),
+    jobDescription: v.optional(v.string()),
+    preferences: v.optional(v.object({
+      tone: v.optional(v.union(v.literal("professional"), v.literal("casual"), v.literal("enthusiastic"))),
+      length: v.optional(v.union(v.literal("short"), v.literal("medium"), v.literal("long"))),
+      customInstructions: v.optional(v.string()),
+    })),
+    createJobApplication: v.optional(v.boolean()),
+    jobApplicationData: v.optional(v.object({
+      jobUrl: v.optional(v.string()),
+      location: v.optional(v.string()),
+      salary: v.optional(v.string()),
+      jobType: v.optional(v.union(v.literal("full-time"), v.literal("part-time"), v.literal("contract"), v.literal("internship"), v.literal("freelance"))),
+      notes: v.optional(v.string()),
+    })),
+  },
+  returns: v.object({
+    coverLetter: v.object({
+      _id: v.id("coverLetters"),
+      userProfileId: v.id("userProfiles"),
+      extractedJobId: v.optional(v.id("extractedJobs")),
+      resumeId: v.id("resumes"),
+      jobTitle: v.optional(v.string()),
+      company: v.optional(v.string()),
+      content: v.string(),
+      creditsUsed: v.number(),
+      preferences: v.optional(v.any()),
+      createdAt: v.number(),
+      _creationTime: v.number(),
+    }),
+    tokensUsed: v.number(),
+    remainingCredits: v.number(),
+  }),
+  handler: async (ctx, args): Promise<GenerateCoverLetterResult> => {
+    const generated: GenerateCoverLetterResult = await ctx.runMutation(api.coverLetters.generate as any, {
+      resumeId: args.resumeId,
+      extractedContent: {
+        title: args.jobTitle,
+        company: args.companyName,
+        description: args.jobDescription,
+        pageType: "manual-form",
+        confidence: 1,
+        url: "",
+        domain: "manual",
+      },
+      preferences: args.preferences
+        ? {
+            tone: args.preferences.tone,
+            length: args.preferences.length,
+          }
+        : undefined,
+    }) as GenerateCoverLetterResult;
+
+    if (args.createJobApplication) {
+      const jobData = args.jobApplicationData ?? {};
+      await ctx.db.insert("jobApplications", {
+        userProfileId: generated.coverLetter.userProfileId,
+        jobTitle: args.jobTitle,
+        companyName: args.companyName,
+        location: jobData.location,
+        salary: jobData.salary,
+        status: "applied",
+        appliedDate: Date.now(),
+        notes: jobData.notes,
+        jobUrl: jobData.jobUrl,
+        jobType: jobData.jobType,
+        resumeId: args.resumeId,
+        coverLetterId: generated.coverLetter._id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return generated;
   },
 });
 

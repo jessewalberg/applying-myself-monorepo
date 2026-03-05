@@ -1,22 +1,53 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { useConvexAuth, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useMutation } from "convex/react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { api } from "@applyingmyself/convex-client";
+import { Button } from "@applyingmyself/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@applyingmyself/ui/components/card";
+import { Input } from "@applyingmyself/ui/components/input";
+import { Label } from "@applyingmyself/ui/components/label";
+import { Textarea } from "@applyingmyself/ui/components/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@applyingmyself/ui/components/select";
+
+type ApplicationStatus =
+  | "applied"
+  | "interviewing"
+  | "offered"
+  | "rejected"
+  | "withdrawn";
+
+type JobType =
+  | "full-time"
+  | "part-time"
+  | "contract"
+  | "internship"
+  | "freelance";
 
 export default function NewJobPage() {
   const router = useRouter();
-  const { isAuthenticated } = useConvexAuth();
+  const { isLoaded, userId } = useAuth();
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
+  const createJobApplication = useMutation(api.jobApplications.create);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated) {
-      ensureUserProfile({});
+    if (isLoaded && userId) {
+      ensureUserProfile({}).catch(() => undefined);
     }
-  }, [isAuthenticated, ensureUserProfile]);
+  }, [ensureUserProfile, isLoaded, userId]);
 
   const [formData, setFormData] = useState({
     jobTitle: "",
@@ -24,26 +55,56 @@ export default function NewJobPage() {
     jobUrl: "",
     location: "",
     salary: "",
-    jobType: "full-time",
-    status: "applied",
+    jobType: "full-time" as JobType,
+    status: "applied" as ApplicationStatus,
     appliedDate: "",
     notes: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const normalizeOptional = (value: string): string | undefined => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
+  const parseAppliedDate = (value: string): number | undefined => {
+    if (!value) return undefined;
+    const timestamp = new Date(`${value}T12:00:00`).getTime();
+    return Number.isFinite(timestamp) ? timestamp : undefined;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setErrorMsg("");
+    setIsSubmitting(true);
+
     try {
-      // TODO: Implement job application creation with Convex
-      console.log("Creating job application:", formData);
-      router.push("/dashboard/jobs");
-    } catch (error) {
-      console.error("Error creating job application:", error);
+      await createJobApplication({
+        jobTitle: formData.jobTitle.trim(),
+        companyName: formData.companyName.trim(),
+        jobUrl: normalizeOptional(formData.jobUrl),
+        location: normalizeOptional(formData.location),
+        salary: normalizeOptional(formData.salary),
+        jobType: formData.jobType,
+        status: formData.status,
+        appliedDate: parseAppliedDate(formData.appliedDate),
+        notes: normalizeOptional(formData.notes),
+      });
+
+      router.push("/dashboard/jobs?created=1");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to create job application. Please try again.";
+      setErrorMsg(message);
+      setIsSubmitting(false);
     }
   };
 
@@ -52,167 +113,201 @@ export default function NewJobPage() {
       <div className="mb-8">
         <Link
           href="/dashboard/jobs"
-          className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
-          <ArrowLeftIcon className="w-4 h-4" />
-          <span>Back to Job Applications</span>
+          <ArrowLeft className="w-4 h-4" />
+          Back to job applications
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Add Job Application</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Track a new job application in your pipeline.
+        <h1 className="font-display text-3xl text-foreground">
+          Add job application<span className="text-primary">.</span>
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Capture this role so you can track progress in your pipeline.
         </p>
       </div>
 
-      <div className="max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
+        <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Job information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Job Title *</label>
-                <input
-                  type="text"
+                <Label htmlFor="jobTitle">Job Title *</Label>
+                <Input
+                  id="jobTitle"
                   name="jobTitle"
                   value={formData.jobTitle}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., Software Engineer"
                   required
+                  disabled={isSubmitting}
+                  className="mt-1.5"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name *</label>
-                <input
-                  type="text"
+                <Label htmlFor="companyName">Company Name *</Label>
+                <Input
+                  id="companyName"
                   name="companyName"
                   value={formData.companyName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., Google"
                   required
+                  disabled={isSubmitting}
+                  className="mt-1.5"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
-                <input
-                  type="text"
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., San Francisco, CA"
+                  disabled={isSubmitting}
+                  className="mt-1.5"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Salary Range</label>
-                <input
-                  type="text"
+                <Label htmlFor="salary">Salary Range</Label>
+                <Input
+                  id="salary"
                   name="salary"
                   value={formData.salary}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                   placeholder="e.g., $100k - $150k"
+                  disabled={isSubmitting}
+                  className="mt-1.5"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Job Type</label>
-                <select
-                  name="jobType"
+                <Label>Job Type</Label>
+                <Select
                   value={formData.jobType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, jobType: value as JobType }))
+                  }
+                  disabled={isSubmitting}
                 >
-                  <option value="full-time">Full-time</option>
-                  <option value="part-time">Part-time</option>
-                  <option value="contract">Contract</option>
-                  <option value="internship">Internship</option>
-                  <option value="freelance">Freelance</option>
-                </select>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full-time">Full-time</SelectItem>
+                    <SelectItem value="part-time">Part-time</SelectItem>
+                    <SelectItem value="contract">Contract</SelectItem>
+                    <SelectItem value="internship">Internship</SelectItem>
+                    <SelectItem value="freelance">Freelance</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Applied Date</label>
-                <input
-                  type="date"
+                <Label htmlFor="appliedDate">Applied Date</Label>
+                <Input
+                  id="appliedDate"
                   name="appliedDate"
+                  type="date"
                   value={formData.appliedDate}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+                  disabled={isSubmitting}
+                  className="mt-1.5"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Job URL</label>
-              <input
-                type="url"
+              <Label htmlFor="jobUrl">Job URL</Label>
+              <Input
+                id="jobUrl"
                 name="jobUrl"
+                type="url"
                 value={formData.jobUrl}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
                 placeholder="https://..."
+                disabled={isSubmitting}
+                className="mt-1.5"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Link to the job posting for easy reference.
-              </p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Application Details</h2>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Application Status</label>
-              <select
-                name="status"
+        <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+          <CardHeader>
+            <CardTitle>Application details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Status</Label>
+              <Select
                 value={formData.status}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: value as ApplicationStatus,
+                  }))
+                }
+                disabled={isSubmitting}
               >
-                <option value="applied">Applied</option>
-                <option value="interviewing">Interviewing</option>
-                <option value="offered">Offered</option>
-                <option value="rejected">Rejected</option>
-                <option value="withdrawn">Withdrawn</option>
-              </select>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="applied">Applied</SelectItem>
+                  <SelectItem value="interviewing">Interviewing</SelectItem>
+                  <SelectItem value="offered">Offered</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-              <textarea
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
                 name="notes"
                 value={formData.notes}
                 onChange={handleInputChange}
                 rows={4}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
-                placeholder="Any notes about this application, interview details, contacts, etc..."
+                className="mt-1.5"
+                placeholder="Any details about the role, process, or contacts..."
+                disabled={isSubmitting}
               />
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex items-center justify-end space-x-3">
-            <Link
-              href="/dashboard/jobs"
-              className="bg-white text-gray-700 px-6 py-3 rounded-lg font-semibold border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
-              disabled={!formData.jobTitle || !formData.companyName}
-            >
-              Add Application
-            </button>
-          </div>
-        </form>
-      </div>
+        {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+
+        <div className="flex items-center justify-end gap-3">
+          <Button asChild type="button" variant="outline" disabled={isSubmitting}>
+            <Link href="/dashboard/jobs">Cancel</Link>
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting || !formData.jobTitle.trim() || !formData.companyName.trim()}
+            className="gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Add Application"
+            )}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

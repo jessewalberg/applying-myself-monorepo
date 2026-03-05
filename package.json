@@ -1,0 +1,33 @@
+{
+  "name": "applying-myself-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "bun@1.3.10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bunx turbo dev",
+    "dev:web": "bunx turbo dev --filter=@applyingmyself/web",
+    "dev:ext": "bunx turbo dev --filter=@applyingmyself/extension",
+    "dev:convex": "CI=1 bun run --cwd apps/convex dev",
+    "build": "bunx turbo build",
+    "lint": "bunx turbo lint",
+    "typecheck": "bunx turbo typecheck",
+    "convex:dev": "CI=1 bun run --cwd apps/convex dev",
+    "convex:dev:once": "CI=1 bun run --cwd apps/convex dev -- --once",
+    "convex:deploy": "CI=1 bun run --cwd apps/convex deploy",
+    "convex:typecheck": "CI=1 bun run --cwd apps/convex typecheck",
+    "check:api-contract": "bun run scripts/check-api-contract.ts",
+    "check:bundle-size:extension": "bun run scripts/check-extension-bundle-size.ts",
+    "sync:convex-client": "bun run scripts/sync-convex-client.ts",
+    "ops:protect-branch": "bash scripts/apply-branch-protection.sh",
+    "smoke": "bash scripts/run-smoke-checklist.sh"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {}
+}

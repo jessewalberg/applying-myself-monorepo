@@ -1,238 +1,109 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Globe,
   FileText,
-  Sparkles,
   Download,
   Copy,
   Check,
   CheckCircle,
   AlertCircle,
   Upload,
-  ChevronRight,
   Briefcase,
   RefreshCw,
   ChevronDown,
-  ExternalLink
-} from 'lucide-react';
-import { convexApi } from '@/services/convexApi';
-import CONFIG from '@/config';
-import type { GenerateTabProps, Resume, ExtractedContent, User } from '@/types';
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
+import { convexApi } from "@/services/convexApi";
+import type {
+  GenerateTabProps,
+  Resume,
+  ExtractedContent,
+  User,
+} from "@/types";
+import { useResumeLibrary } from "@/features/generate/hooks/useResumeLibrary";
+import { useExtractJob } from "@/features/generate/hooks/useExtractJob";
+import { useGenerateCoverLetter } from "@/features/generate/hooks/useGenerateCoverLetter";
+
+type ApplicationStatus =
+  | "applied"
+  | "interviewing"
+  | "offered"
+  | "rejected"
+  | "withdrawn";
 
 const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
   const [step, setStep] = useState(1);
-  const [extractedData, setExtractedData] = useState<ExtractedContent | null>(null);
-  const [extractedJobId, setExtractedJobId] = useState<string | null>(null);
-  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [coverLetter, setCoverLetter] = useState('');
+  const {
+    resumes,
+    selectedResume,
+    setSelectedResume,
+    loadResumes,
+    uploadResume,
+    getDownloadUrl,
+  } = useResumeLibrary();
+  const {
+    extractedData,
+    extractedJobId,
+    setExtractedData,
+    checkForExtractedContent,
+    extractFromActiveTab,
+  } = useExtractJob();
+  const { generate } = useGenerateCoverLetter();
+  const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
 
   // Job tracking state
   const [trackApplication, setTrackApplication] = useState(false);
-  const [applicationStatus, setApplicationStatus] = useState<"applied" | "interviewing" | "offered" | "rejected" | "withdrawn">("applied");
-  const [applicationNotes, setApplicationNotes] = useState('');
+  const [applicationStatus, setApplicationStatus] =
+    useState<ApplicationStatus>("applied");
+  const [applicationNotes, setApplicationNotes] = useState("");
 
-  // Add null check for user
   if (!user) {
     return (
-      <div className="generate-tab">
-        <div className="loading-message">Loading user data...</div>
+      <div className="flex items-center justify-center py-8">
+        <p className="text-sm text-muted-foreground">Loading user data...</p>
       </div>
     );
   }
 
   useEffect(() => {
-    loadResumes();
-    checkForExtractedContent();
+    void loadResumes();
+    void checkForExtractedContent().then((snapshot) => {
+      if (snapshot) {
+        setStep(2);
+      }
+    });
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.download-dropdown')) {
+      if (!target.closest(".download-dropdown")) {
         setShowDownloadOptions(false);
       }
     };
-
     if (showDownloadOptions) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
     }
   }, [showDownloadOptions]);
 
-  const loadResumes = async (): Promise<void> => {
-    try {
-      const resumeList = await convexApi.getResumes();
-      setResumes(resumeList);
-      if (resumeList.length > 0) {
-        setSelectedResume(resumeList[0]);
-      }
-    } catch (err) {
-      console.error('Failed to load resumes:', err);
-    }
-  };
-
-  /**
-   * Check if user has recently extracted content
-   */
-  const checkForExtractedContent = async (): Promise<void> => {
-    try {
-      const result = await chrome.storage.local.get(['lastExtractedJob', 'extractionTimestamp']);
-
-      if (result.lastExtractedJob && result.extractionTimestamp) {
-        // Check if extraction is recent (within 10 minutes)
-        const tenMinutes = 10 * 60 * 1000;
-        const isRecent = (Date.now() - result.extractionTimestamp) < tenMinutes;
-
-        if (isRecent) {
-          setExtractedData(result.lastExtractedJob as ExtractedContent);
-          setStep(2); // Skip to step 2 if we have recent data
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check for extracted content:', error);
-    }
-  };
-
-  /**
-   * Test API connectivity
-   */
-  const testAPIConnectivity = async (): Promise<boolean> => {
-    try {
-      console.log('Testing API connectivity...');
-      // Try a simple GET request to test connectivity
-      await convexApi.getUserProfile();
-      console.log('API connectivity test passed');
-      return true;
-    } catch (error) {
-      console.error('API connectivity test failed:', error);
-      return false;
-    }
-  };
-
-  /**
-   * Trigger content extraction from current page
-   */
   const handleExtractContent = async (): Promise<void> => {
     setLoading(true);
-    setError('');
-
+    setError("");
     try {
-      // Test API connectivity first
-      const isAPIReachable = await testAPIConnectivity();
-      if (!isAPIReachable) {
-        throw new Error('Cannot connect to the API server. Please check if the server is running.');
-      }
-
-      // Get current tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab.id) {
-        throw new Error('No active tab found');
-      }
-
-      console.log('Attempting to extract from tab:', tab.url);
-
-      // First, ping the content script to see if it's active
-      try {
-        const pingResponse = await chrome.tabs.sendMessage(tab.id, {
-          type: 'PING'
-        });
-        console.log('Content script ping response:', pingResponse);
-      } catch (pingError) {
-        console.warn('Content script not responding, attempting to inject...');
-
-        // Try to inject the content script manually
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content.js']
-          });
-          console.log('Content script injected successfully');
-
-          // Wait a moment for the script to initialize
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (injectError) {
-          console.error('Failed to inject content script:', injectError);
-          throw new Error('Unable to access this page. Please try refreshing the page and try again.');
-        }
-      }
-
-      // Get page data from content script (no API call)
-      const pageDataResponse = await chrome.tabs.sendMessage(tab.id, {
-        type: 'GET_PAGE_DATA'
-      });
-
-      console.log('Page data response:', pageDataResponse);
-
-      if (!pageDataResponse?.success || !pageDataResponse.data) {
-        throw new Error('Failed to extract page data');
-      }
-
-      const pageData = pageDataResponse.data;
-      console.log('Page data received:', {
-        url: pageData.url,
-        title: pageData.title,
-        htmlLength: pageData.html.length
-      });
-
-      // Make API call from popup context (has proper permissions)
-      console.log('Making API call from popup context...');
-      const result = await convexApi.extractJobFromHTML(
-        pageData.html,
-        pageData.url,
-        pageData.title
-      );
-
-      console.log('API extraction result:', result);
-
-      if (!result) {
-        throw new Error('No data returned from extraction');
-      }
-
-      // The backend now returns data in the correct ExtractedContent format
-      const newExtractedData: ExtractedContent = {
-        title: result.title,
-        company: result.company,
-        location: result.location,
-        description: result.description,
-        requirements: result.requirements,
-        salary: result.salary,
-        type: result.type,
-        postedDate: result.postedDate,
-        url: result.url,
-        confidence: result.confidence,
-        pageType: result.pageType,
-        domain: result.domain,
-      };
-
-      await chrome.storage.local.set({
-        lastExtractedJob: newExtractedData,
-        extractionTimestamp: Date.now()
-      });
-
-      // Update user credits with the value returned from extraction
+      const result = await extractFromActiveTab();
       onUserUpdate({ ...user, credits: result.remainingCredits });
-
-      // Store the extracted job ID for potential tracking
-      setExtractedJobId(result.jobId);
-      setExtractedData(newExtractedData);
       setStep(2);
-
     } catch (err: unknown) {
-      console.error('Content extraction error:', err);
-
-      let errorMessage = 'Failed to extract content. ';
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
+      console.error("Content extraction error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to extract content."
+      );
     } finally {
       setLoading(false);
     }
@@ -240,17 +111,13 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   const handleResumeUpload = async (file: File): Promise<void> => {
     setLoading(true);
-    setError('');
-
+    setError("");
     try {
-      const uploadResult = await convexApi.uploadResume(file);
-      await loadResumes();
-      setSelectedResume(uploadResult.resume);
-
-      // Update user credits
+      const uploadResult = await uploadResume(file);
       onUserUpdate({ ...user, credits: uploadResult.remainingCredits });
-    } catch (err: any) {
-      setError('Failed to upload resume. Please try again.');
+    } catch (err: unknown) {
+      console.error("Failed to upload resume:", err);
+      setError("Failed to upload resume. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -258,49 +125,30 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   const handleGenerateCoverLetter = async (): Promise<void> => {
     if (!selectedResume || !extractedData) {
-      setError('Please select a resume and extract job content first.');
+      setError("Please select a resume and extract job content first.");
       return;
     }
-
     setLoading(true);
-    setError('');
-    setCoverLetter('Generating your personalized cover letter...');
-    setStep(3); // Show the cover letter step immediately with loading state
-
+    setError("");
+    setCoverLetter("Generating your personalized cover letter...");
+    setStep(3);
     try {
-      const response = await convexApi.generateCoverLetterFromContent({
-        resumeId: selectedResume.id,
-        extractedContent: extractedData,
-        tone: 'professional', // or get from UI
-        length: 'medium',     // or get from UI
-      }, (progressContent: string) => {
-        // Update cover letter content as AI generates it
-        setCoverLetter(progressContent);
+      const response = await generate({
+        selectedResume,
+        extractedData,
+        extractedJobId,
+        trackApplication,
+        applicationOptions: {
+          status: applicationStatus,
+          appliedDate: Date.now(),
+          notes: applicationNotes,
+          resumeId: selectedResume.id,
+        },
+        onProgress: (progressContent: string) => {
+          setCoverLetter(progressContent);
+        },
       });
-
-      // Final update with completed content
       setCoverLetter(response.coverLetter.content);
-
-      // If tracking is enabled, automatically track the application
-      if (trackApplication && extractedJobId) {
-        try {
-          await convexApi.createJobApplicationFromExtracted(extractedJobId, {
-            status: applicationStatus,
-            appliedDate: Date.now(),
-            notes: applicationNotes,
-            resumeId: selectedResume.id,
-          });
-
-          // Show success message for tracking
-          console.log('✅ Job application tracked successfully!');
-        } catch (trackingErr) {
-          console.error('Failed to track application:', trackingErr);
-          // Don't fail the whole process if tracking fails
-          setError('Cover letter generated successfully, but failed to track application.');
-        }
-      }
-
-      // Refetch user profile to get updated credits
       const updatedUserProfile = await convexApi.getUserProfile();
       if (updatedUserProfile) {
         const updatedUser: User = {
@@ -312,10 +160,13 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
         };
         onUserUpdate(updatedUser);
       }
-
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to generate cover letter. Please try again.');
-      setStep(2); // Go back to previous step on error
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate cover letter. Please try again."
+      );
+      setStep(2);
     } finally {
       setLoading(false);
     }
@@ -325,176 +176,194 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     try {
       await navigator.clipboard.writeText(coverLetter);
       setCopySuccess(true);
-
-      // Reset the success state after 2 seconds
-      setTimeout(() => {
-        setCopySuccess(false);
-      }, 2000);
+      setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
-      setError('Failed to copy to clipboard. Please try again.');
+      console.error("Failed to copy to clipboard:", err);
+      setError("Failed to copy to clipboard.");
     }
   };
 
   const handleDownloadAsGoogleDoc = async (): Promise<void> => {
     try {
-      // Copy content to clipboard first
       await navigator.clipboard.writeText(coverLetter);
-
-      // Open Google Docs in a new tab
-      const googleDocsUrl = 'https://docs.google.com/document/create';
-      chrome.tabs.create({ url: googleDocsUrl });
-
+      chrome.tabs.create({ url: "https://docs.google.com/document/create" });
       setShowDownloadOptions(false);
-
-      // Show instructions to user
-      alert('✅ Cover letter copied to clipboard!\n\n📝 Google Docs will open in a new tab\n📋 Simply paste (Ctrl+V / Cmd+V) your cover letter\n💾 Save and edit as needed');
+      alert(
+        "Cover letter copied to clipboard!\n\nGoogle Docs will open in a new tab.\nPaste (Ctrl+V / Cmd+V) your cover letter."
+      );
     } catch (err) {
-      console.error('Failed to open Google Docs:', err);
-      setError('Failed to open Google Docs. Please try again.');
+      console.error("Failed to open Google Docs:", err);
+      setError("Failed to open Google Docs.");
     }
   };
 
-
-
   const handleDownloadAsWordDoc = async (): Promise<void> => {
     try {
-      const { generateDocx, generateCoverLetterFilename } = await import('@/utils/documentGenerator');
-
+      const { generateDocx, generateCoverLetterFilename } = await import(
+        "@/utils/documentGenerator"
+      );
       const filename = generateCoverLetterFilename(
         extractedData?.company,
         extractedData?.title,
-        'docx'
+        "docx"
       );
-
       await generateDocx({
-        title: `Cover Letter - ${extractedData?.title || 'Position'}`,
+        title: `Cover Letter - ${extractedData?.title || "Position"}`,
         company: extractedData?.company,
         content: coverLetter,
         createdAt: Date.now(),
-        filename
+        filename,
       });
-
       setShowDownloadOptions(false);
     } catch (err) {
-      console.error('Failed to download Word document:', err);
-      setError('Failed to download document. Please try again.');
+      console.error("Failed to download Word document:", err);
+      setError("Failed to download document.");
     }
   };
 
   const handleDownloadAsPdf = async (): Promise<void> => {
     try {
-      const { generatePdf, generateCoverLetterFilename } = await import('@/utils/documentGenerator');
-
+      const { generatePdf, generateCoverLetterFilename } = await import(
+        "@/utils/documentGenerator"
+      );
       const filename = generateCoverLetterFilename(
         extractedData?.company,
         extractedData?.title,
-        'pdf'
+        "pdf"
       );
-
       await generatePdf({
-        title: `Cover Letter - ${extractedData?.title || 'Position'}`,
+        title: `Cover Letter - ${extractedData?.title || "Position"}`,
         company: extractedData?.company,
         content: coverLetter,
         createdAt: Date.now(),
-        filename
+        filename,
       });
-
       setShowDownloadOptions(false);
     } catch (err) {
-      console.error('Failed to download PDF:', err);
-      setError('Failed to download PDF. Please try again.');
+      console.error("Failed to download PDF:", err);
+      setError("Failed to download PDF.");
     }
   };
 
   const handleResumeDownload = async (resume: Resume): Promise<void> => {
     try {
-      const downloadUrl = await convexApi.getResumeDownloadUrl(resume.id);
+      const downloadUrl = await getDownloadUrl(resume.id);
       if (downloadUrl) {
-        // Create a temporary link to download the file
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = downloadUrl;
         link.download = resume.filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       } else {
-        setError('Failed to get download URL for resume.');
+        setError("Failed to get download URL.");
       }
     } catch (err) {
-      console.error('Failed to download resume:', err);
-      setError('Failed to download resume. Please try again.');
+      console.error("Failed to download resume:", err);
+      setError("Failed to download resume.");
     }
   };
-  console.log(coverLetter)
+
   return (
-    <div className="generate-tab">
-      <div className="steps-indicator">
-        {[1, 2, 3].map(stepNum => (
+    <div className="flex flex-col gap-4">
+      {/* Steps indicator */}
+      <div className="flex justify-center gap-3 mb-2">
+        {[1, 2, 3].map((stepNum) => (
           <div
             key={stepNum}
-            className={`step-indicator ${step >= stepNum ? 'active' : ''} ${step === stepNum ? 'current' : ''}`}
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+              step === stepNum
+                ? "bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110"
+                : step > stepNum
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground"
+            }`}
           >
-            {step > stepNum ? <Check size={12} /> : stepNum}
+            {step > stepNum ? <Check className="w-3 h-3" /> : stepNum}
           </div>
         ))}
       </div>
 
+      {/* Step 1: Extract */}
       {step === 1 && (
-        <StepCard
-          title="Extract Page Content"
-          description="Extract information from any webpage"
-          icon={Globe}
-        >
-          <div className="extraction-info">
-            <p>Navigate to any job posting webpage and click the button below to extract the job details for your cover letter.</p>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <Globe className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                Extract Page Content
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Navigate to a job posting and extract details
+              </p>
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Navigate to any job posting webpage and click below to extract the
+            job details for your cover letter.
+          </p>
           <button
-            className="primary-button"
             onClick={handleExtractContent}
             disabled={loading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
               <>
-                <RefreshCw className="animate-spin" size={16} />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Extracting...
               </>
             ) : (
-              'Extract Current Page'
+              "Extract Current Page"
             )}
           </button>
-        </StepCard>
+        </div>
       )}
 
+      {/* Step 2: Review & Select Resume */}
       {step === 2 && extractedData && (
-        <StepCard
-          title="Content Extracted"
-          description="Review the extracted information"
-          icon={Briefcase}
-        >
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <Briefcase className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                Content Extracted
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Review the extracted information
+              </p>
+            </div>
+          </div>
+
           <ContentPreview data={extractedData} />
 
-          {/* Job Tracking Section */}
-          <div className="job-tracking-section">
-            <div className="tracking-header">
-              <label className="tracking-toggle">
-                <input
-                  type="checkbox"
-                  checked={trackApplication}
-                  onChange={(e) => setTrackApplication(e.target.checked)}
-                />
-                <span>Track this as a job application</span>
-              </label>
-            </div>
+          {/* Job Tracking Toggle */}
+          <div className="mt-4 rounded-md border border-border p-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={trackApplication}
+                onChange={(e) => setTrackApplication(e.target.checked)}
+                className="rounded border-border text-primary focus:ring-primary"
+              />
+              <span className="text-xs font-medium text-foreground">
+                Track as job application
+              </span>
+            </label>
 
             {trackApplication && (
-              <div className="tracking-options">
-                <div className="tracking-row">
-                  <label>Status:</label>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground w-14 shrink-0">
+                    Status:
+                  </label>
                   <select
                     value={applicationStatus}
-                    onChange={(e) => setApplicationStatus(e.target.value as any)}
-                    className="status-select"
+                    onChange={(e) =>
+                      setApplicationStatus(
+                        e.target.value as ApplicationStatus
+                      )
+                    }
+                    className="flex-1 text-xs rounded-md bg-background border border-border text-foreground px-2 py-1.5 focus:ring-1 focus:ring-primary focus:border-primary"
                   >
                     <option value="applied">Applied</option>
                     <option value="interviewing">Interviewing</option>
@@ -503,18 +372,17 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
                     <option value="withdrawn">Withdrawn</option>
                   </select>
                 </div>
-                <div className="tracking-row">
-                  <label>Notes:</label>
+                <div className="flex items-start gap-2">
+                  <label className="text-xs text-muted-foreground w-14 shrink-0 mt-1.5">
+                    Notes:
+                  </label>
                   <textarea
                     value={applicationNotes}
                     onChange={(e) => setApplicationNotes(e.target.value)}
-                    placeholder="Add notes about this application..."
+                    placeholder="Add notes..."
                     rows={2}
-                    className="notes-textarea"
+                    className="flex-1 text-xs rounded-md bg-background border border-border text-foreground px-2 py-1.5 resize-none focus:ring-1 focus:ring-primary focus:border-primary"
                   />
-                </div>
-                <div className="tracking-info">
-                  <small>✓ Application will be tracked automatically when you generate the cover letter</small>
                 </div>
               </div>
             )}
@@ -528,116 +396,155 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
             onResumeDownload={handleResumeDownload}
             loading={loading}
           />
+
           <button
-            className="primary-button"
             onClick={handleGenerateCoverLetter}
             disabled={!selectedResume || loading}
+            className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : 'Generate Cover Letter (3 credits)'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "Generate Cover Letter (3 credits)"
+            )}
           </button>
-        </StepCard>
+        </div>
       )}
 
+      {/* Step 3: Cover Letter Result */}
       {step === 3 && coverLetter && (
-        <StepCard
-          title={loading ? "Generating Cover Letter" : "Cover Letter Ready"}
-          description={loading ? "AI is creating your personalized cover letter..." : "Your personalized cover letter"}
-          icon={FileText}
-        >
-          <div className="cover-letter-preview">
-            {loading && coverLetter.includes('Generating your personalized cover letter') && (
-              <div className="generation-status">
-                <RefreshCw className="animate-spin" size={20} />
-                <span>AI is analyzing the job posting and your resume...</span>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                {loading ? "Generating Cover Letter" : "Cover Letter Ready"}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {loading
+                  ? "AI is creating your personalized cover letter..."
+                  : "Your personalized cover letter"}
+              </p>
+            </div>
+          </div>
+
+          {loading &&
+            coverLetter.includes("Generating your personalized") && (
+              <div className="flex items-center gap-2 mb-3 p-2 rounded-md bg-primary/5 border border-primary/10">
+                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                <span className="text-xs text-muted-foreground">
+                  Analyzing the job posting and your resume...
+                </span>
               </div>
             )}
-            <textarea
-              value={coverLetter}
-              readOnly
-              rows={10}
-              className={`cover-letter-text ${loading ? 'generating' : ''}`}
-            />
-          </div>
+
+          <textarea
+            value={coverLetter}
+            readOnly
+            rows={8}
+            className={`w-full text-xs leading-relaxed rounded-md bg-background border border-border text-foreground p-3 resize-y font-mono focus:outline-none focus:ring-1 focus:ring-primary ${
+              loading ? "opacity-60" : ""
+            }`}
+          />
+
           {!loading && (
             <>
-              <div className="action-buttons">
+              <div className="flex gap-2 mt-3">
                 <button
-                  className={`secondary-button ${copySuccess ? 'success' : ''}`}
                   onClick={handleCopyToClipboard}
                   disabled={copySuccess}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-border bg-secondary text-secondary-foreground text-xs font-medium hover:bg-secondary/80 transition-colors"
                 >
                   {copySuccess ? (
                     <>
-                      <CheckCircle size={16} /> Copied!
+                      <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      Copied!
                     </>
                   ) : (
                     <>
-                      <Copy size={16} /> Copy
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy
                     </>
                   )}
                 </button>
-                <div className="download-dropdown">
+
+                <div className="download-dropdown relative flex-1">
                   <button
-                    className="primary-button"
-                    onClick={() => setShowDownloadOptions(!showDownloadOptions)}
+                    onClick={() =>
+                      setShowDownloadOptions(!showDownloadOptions)
+                    }
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
                   >
-                    <Download size={16} /> Download
-                    <ChevronDown size={14} />
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                    <ChevronDown className="w-3 h-3" />
                   </button>
+
                   {showDownloadOptions && (
-                    <div className="download-options">
+                    <div className="absolute bottom-full mb-1 left-0 right-0 rounded-md border border-border bg-popover shadow-lg z-10 overflow-hidden">
                       <button
-                        className="download-option"
                         onClick={handleDownloadAsGoogleDoc}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-popover-foreground hover:bg-secondary transition-colors"
                       >
-                        <ExternalLink size={16} />
-                        <div>
-                          <span>Open in Google Docs</span>
-                          <small>Editable online document</small>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <div className="text-left">
+                          <div className="font-medium">Google Docs</div>
+                          <div className="text-muted-foreground text-[10px]">
+                            Edit online
+                          </div>
                         </div>
                       </button>
                       <button
-                        className="download-option"
                         onClick={handleDownloadAsWordDoc}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-popover-foreground hover:bg-secondary transition-colors border-t border-border"
                       >
-                        <Download size={16} />
-                        <div>
-                          <span>Download as Word Doc</span>
-                          <small>DOCX format (.docx)</small>
+                        <Download className="w-3.5 h-3.5" />
+                        <div className="text-left">
+                          <div className="font-medium">Word Document</div>
+                          <div className="text-muted-foreground text-[10px]">
+                            .docx format
+                          </div>
                         </div>
                       </button>
                       <button
-                        className="download-option"
                         onClick={handleDownloadAsPdf}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-popover-foreground hover:bg-secondary transition-colors border-t border-border"
                       >
-                        <Download size={16} />
-                        <div>
-                          <span>Download as PDF</span>
-                          <small>PDF format (.pdf)</small>
+                        <Download className="w-3.5 h-3.5" />
+                        <div className="text-left">
+                          <div className="font-medium">PDF</div>
+                          <div className="text-muted-foreground text-[10px]">
+                            .pdf format
+                          </div>
                         </div>
                       </button>
                     </div>
                   )}
                 </div>
               </div>
+
               <button
-                className="link-button"
                 onClick={() => {
                   setStep(1);
                   setExtractedData(null);
-                  setCoverLetter('');
+                  setCoverLetter("");
                 }}
+                className="w-full mt-2 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Extract Another Page
               </button>
             </>
           )}
-        </StepCard>
+        </div>
       )}
 
+      {/* Error */}
       {error && (
-        <div className="error-message">
-          <AlertCircle size={16} />
+        <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           {error}
         </div>
       )}
@@ -645,58 +552,34 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
   );
 };
 
-interface StepCardProps {
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}
+/* ---------- Sub-components ---------- */
 
-const StepCard: React.FC<StepCardProps> = ({ title, description, icon: Icon, children }) => (
-  <div className="step-card">
-    <div className="step-header">
-      <Icon className="step-icon" />
-      <div>
-        <h3>{title}</h3>
-        <p>{description}</p>
-      </div>
-    </div>
-    <div className="step-content">
-      {children}
-    </div>
-  </div>
-);
-
-/**
- * Component to preview extracted content
- */
-interface ContentPreviewProps {
-  data: ExtractedContent;
-}
-
-const ContentPreview: React.FC<ContentPreviewProps> = ({ data }) => (
-  <div className="content-preview">
-    <div className="preview-header">
-      <h4>Extracted from: {data.domain}</h4>
+const ContentPreview: React.FC<{ data: ExtractedContent }> = ({ data }) => (
+  <div className="rounded-md border border-border bg-background p-3 space-y-1.5">
+    <div className="flex items-center justify-between">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+        {data.domain}
+      </span>
       {data.confidence !== undefined && (
-        <div className="confidence-badge">
-          Confidence: {Math.round(data.confidence * 100)}%
-        </div>
+        <span className="text-[10px] font-medium text-primary">
+          {Math.round(data.confidence * 100)}% confidence
+        </span>
       )}
     </div>
-
-    <div className="preview-content">
-      {data.title && <div><strong>Title:</strong> {data.title}</div>}
-      {data.company && <div><strong>Company:</strong> {data.company}</div>}
-      {data.location && <div><strong>Location:</strong> {data.location}</div>}
-      {data.pageType && <div><strong>Page Type:</strong> {data.pageType}</div>}
-      {data.description && (
-        <div>
-          <strong>Description:</strong>
-          <p className="description-text">{data.description.substring(0, 200)}...</p>
-        </div>
-      )}
-    </div>
+    {data.title && (
+      <p className="text-xs font-semibold text-foreground">{data.title}</p>
+    )}
+    {data.company && (
+      <p className="text-xs text-muted-foreground">{data.company}</p>
+    )}
+    {data.location && (
+      <p className="text-[11px] text-muted-foreground">{data.location}</p>
+    )}
+    {data.description && (
+      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">
+        {data.description.substring(0, 200)}...
+      </p>
+    )}
   </div>
 );
 
@@ -715,7 +598,7 @@ const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   onResumeSelect,
   onResumeUpload,
   onResumeDownload,
-  loading
+  loading,
 }) => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
@@ -725,48 +608,66 @@ const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   };
 
   return (
-    <div className="resume-selector">
-      <div className="upload-area">
+    <div className="mt-4 space-y-3">
+      {/* Upload */}
+      <div>
         <input
           type="file"
           id="resume-upload"
           accept=".pdf,.doc,.docx"
           onChange={handleFileUpload}
-          style={{ display: 'none' }}
+          className="hidden"
           disabled={loading}
         />
-        <label htmlFor="resume-upload" className="upload-button">
-          <Upload size={16} />
+        <label
+          htmlFor="resume-upload"
+          className="flex items-center justify-center gap-2 p-3 rounded-md border-2 border-dashed border-border text-xs font-medium text-primary cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+        >
+          <Upload className="w-3.5 h-3.5" />
           Upload New Resume
         </label>
       </div>
 
+      {/* Resume list */}
       {resumes.length > 0 && (
-        <div className="resume-list">
-          <h4>Select Resume:</h4>
-          {resumes.map(resume => (
+        <div className="rounded-md border border-border overflow-hidden">
+          <div className="px-3 pt-2 pb-1">
+            <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Select Resume
+            </h4>
+          </div>
+          {resumes.map((resume) => (
             <div
               key={resume.id}
-              className={`resume-item ${selectedResume?.id === resume.id ? 'selected' : ''}`}
+              className={`flex items-center justify-between px-3 py-2.5 border-t border-border cursor-pointer transition-colors ${
+                selectedResume?.id === resume.id
+                  ? "bg-primary/5 border-l-2 border-l-primary"
+                  : "hover:bg-secondary/50"
+              }`}
             >
-              <div className="resume-content" onClick={() => onResumeSelect(resume)}>
-                <FileText size={16} />
-                <div className="resume-info">
-                  <span className="resume-name">{resume.filename}</span>
-                  <span className="resume-date">
+              <div
+                className="flex items-center gap-2 flex-1 min-w-0"
+                onClick={() => onResumeSelect(resume)}
+              >
+                <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {resume.filename}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
                     {new Date(resume.createdAt).toLocaleDateString()}
-                  </span>
+                  </p>
                 </div>
               </div>
               <button
-                className="resume-download-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   onResumeDownload(resume);
                 }}
-                title="Download resume"
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                title="Download"
               >
-                <Download size={14} />
+                <Download className="w-3 h-3" />
               </button>
             </div>
           ))}

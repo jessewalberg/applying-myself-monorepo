@@ -5,12 +5,22 @@ const fs = require('fs');
 const path = require('path');
 
 const ENVIRONMENTS = ['development', 'staging', 'production'];
+const BUILD_SCRIPT_BY_ENV = {
+  development: 'build:dev',
+  staging: 'build:staging',
+  production: 'build:prod',
+};
+const ZIP_SCRIPT_BY_ENV = {
+  development: 'zip',
+  staging: 'zip:staging',
+  production: 'zip:prod',
+};
 
 function printUsage() {
   console.log(`
 🚀 Chrome Extension Deployment Script
 
-Usage: node scripts/deploy.js <environment> [options]
+Usage: bun scripts/deploy.js <environment> [options]
 
 Environments:
   development  - Build for development with hot reload
@@ -22,9 +32,9 @@ Options:
   --clean      - Clean dist directory before building
 
 Examples:
-  node scripts/deploy.js staging --zip
-  node scripts/deploy.js production --clean --zip
-  node scripts/deploy.js development
+  bun scripts/deploy.js staging --zip
+  bun scripts/deploy.js production --clean --zip
+  bun scripts/deploy.js development
 `);
 }
 
@@ -52,25 +62,35 @@ function main() {
     // Clean if requested
     if (shouldClean) {
       console.log('🧹 Cleaning dist directory...');
-      execSync('npm run clean', { stdio: 'inherit' });
+      execSync('bun run clean', { stdio: 'inherit' });
     }
 
     // Build for the specified environment
-    const buildCommand = `npm run build:${environment}`;
+    const buildCommand = `bun run ${BUILD_SCRIPT_BY_ENV[environment]}`;
     console.log(`📦 Running: ${buildCommand}`);
     execSync(buildCommand, { stdio: 'inherit' });
 
     // Create zip if requested
     if (shouldZip) {
       const zipName = `extension-${environment}.zip`;
+      const zipPath = path.join(process.cwd(), zipName);
       console.log(`📦 Creating ${zipName}...`);
       
       // Remove old zip if exists
-      if (fs.existsSync(zipName)) {
-        fs.unlinkSync(zipName);
+      if (fs.existsSync(zipPath)) {
+        fs.unlinkSync(zipPath);
       }
       
-      execSync(`npm run zip:${environment}`, { stdio: 'inherit' });
+      execSync(`bun run ${ZIP_SCRIPT_BY_ENV[environment]}`, { stdio: 'inherit' });
+      const distDir = path.join(process.cwd(), 'dist');
+      const generatedZip = fs
+        .readdirSync(distDir)
+        .find((file) => file.endsWith('.zip'));
+
+      if (generatedZip) {
+        fs.copyFileSync(path.join(distDir, generatedZip), zipPath);
+      }
+
       console.log(`✅ Created ${zipName}`);
     }
 

@@ -4,9 +4,15 @@ const nextConfig: NextConfig = {
   // SEO and Performance Optimizations
   compress: true,
   poweredByHeader: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   // Disable sourcemaps in development to prevent console errors
   productionBrowserSourceMaps: false,
+
+  // Image optimization
+  transpilePackages: ["@applyingmyself/convex-client", "@applyingmyself/runtime-config", "@applyingmyself/ui"],
 
   // Image optimization
   images: {

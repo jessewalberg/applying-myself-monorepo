@@ -1,0 +1,6 @@
+# Default ownership for the monorepo.
+* @jessewalberg
+
+# Governance and workflow files.
+.github/* @jessewalberg
+docs/monorepo/* @jessewalberg

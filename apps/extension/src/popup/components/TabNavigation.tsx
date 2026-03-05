@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, History, Settings } from 'lucide-react';
 import type { TabNavigationProps } from '@/types';
 
-const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange, user }) => {
+const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'generate' as const, label: 'Generate', icon: FileText },
     { id: 'history' as const, label: 'History', icon: History },

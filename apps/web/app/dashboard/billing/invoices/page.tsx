@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@applyingmyself/convex-client';
 import Link from "next/link";
 import {
     ArrowLeftIcon,

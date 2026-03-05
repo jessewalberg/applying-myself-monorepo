@@ -1,4 +1,13 @@
-import type { ChromeMessage, ChromeTab } from '@/types/chrome';
+import type { ChromeTab } from '@/types/chrome';
+import type { PopupToBackgroundMessage, PopupToContentMessage } from '@/core/contracts/messages';
+import { isAnalyticsEventMessage } from '@/core/contracts/messages';
+import CONFIG from '@/config';
+
+type JobDetectorWindow = Window & {
+  jobDetector?: {
+    extractJobData: () => unknown;
+  };
+};
 
 class BackgroundService {
   constructor() {
@@ -18,7 +27,7 @@ class BackgroundService {
     if (manifest.name.includes('Development')) {
       console.log('🔄 Auto-reload enabled for development');
 
-      chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
+      chrome.runtime.onMessage.addListener((message: PopupToBackgroundMessage, _sender, _sendResponse) => {
         if (message.type === 'RELOAD_EXTENSION') {
           console.log('🔄 Reloading extension...');
           chrome.runtime.reload();
@@ -29,7 +38,7 @@ class BackgroundService {
   }
 
   private setupMessageListeners(): void {
-    chrome.runtime.onMessage.addListener((message: ChromeMessage, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message: PopupToBackgroundMessage, _sender, sendResponse) => {
       switch (message.type) {
         case 'OPEN_POPUP':
           this.openPopup();
@@ -44,7 +53,7 @@ class BackgroundService {
           this.extractJobFromTab(message.tabId).then(sendResponse);
           return true;
         case 'ANALYTICS_EVENT':
-          if (message.eventName) {
+          if (isAnalyticsEventMessage(message)) {
             this.trackEvent(message.eventName, message.properties);
           }
           break;
@@ -65,7 +74,8 @@ class BackgroundService {
       if (info.menuItemId === 'applying-myself-extract') {
         // Send message to content script to extract
         if (tab?.id) {
-          chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_CONTENT' });
+          const message: PopupToContentMessage = { type: 'EXTRACT_PAGE_CONTENT' };
+          chrome.tabs.sendMessage(tab.id, message);
         }
       }
     });
@@ -93,15 +103,16 @@ class BackgroundService {
     return tab as ChromeTab;
   }
 
-  private async extractJobFromTab(tabId?: number): Promise<any> {
+  private async extractJobFromTab(tabId?: number): Promise<unknown> {
     try {
       const targetTabId = tabId || (await this.getCurrentTab()).id;
       const results = await chrome.scripting.executeScript({
         target: { tabId: targetTabId },
         func: () => {
           // This function runs in the context of the webpage
-          if ((window as any).jobDetector) {
-            return (window as any).jobDetector.extractJobData();
+          const pageWindow = window as JobDetectorWindow;
+          if (pageWindow.jobDetector) {
+            return pageWindow.jobDetector.extractJobData();
           }
           return null;
         }
@@ -126,8 +137,8 @@ class BackgroundService {
     }
   }
 
-  private trackEvent(eventName: string, properties: Record<string, any> = {}): void {
-    fetch('https://dazzling-badger-1.convex.cloud/api/analytics', {
+  private trackEvent(eventName: string, properties: Record<string, unknown> = {}): void {
+    fetch(CONFIG.ANALYTICS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -142,5 +153,10 @@ class BackgroundService {
   }
 }
 
-// Initialize background service
-new BackgroundService();
+let backgroundService: BackgroundService | null = null;
+
+export const startBackgroundService = (): void => {
+  if (!backgroundService) {
+    backgroundService = new BackgroundService();
+  }
+};

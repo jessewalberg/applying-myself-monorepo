@@ -7,7 +7,7 @@
 - **Frontend**: Next.js 15.3.3 (App Router), React 19, TypeScript 5
 - **Styling**: Tailwind CSS 4
 - **Backend**: Convex (real-time backend with database)
-- **Authentication**: @convex-dev/auth (email-based)
+- **Authentication**: Clerk (`@clerk/nextjs`) + Convex Clerk integration
 - **Icons**: Lucide React, Heroicons
 - **Document Processing**: docx, jspdf, html2canvas
 - **Analytics**: Vercel Analytics
@@ -21,8 +21,6 @@ applying-myself-next/
 │   ├── page.tsx                   # Homepage (imports HomePageClient)
 │   ├── HomePageClient.tsx         # Main landing page component
 │   ├── globals.css                # Global styles
-│   ├── api/                       # API routes
-│   │   └── auth/extension-token/  # Extension authentication
 │   ├── login/                     # Authentication pages
 │   ├── register/
 │   ├── dashboard/                 # Protected dashboard area
@@ -52,9 +50,9 @@ applying-myself-next/
 ## Key Components & Architecture
 
 ### Authentication Flow
-- **Provider**: `ConvexProvider` wraps the app with `ConvexAuthProvider`
+- **Provider**: `ConvexProvider` wraps the app with `ClerkProvider` + `ConvexProviderWithClerk`
 - **Guards**: `ProtectedRoute` guards dashboard routes
-- **Utilities**: Environment-specific auth configuration in `utils/auth.ts`
+- **Middleware**: `middleware.ts` protects dashboard/debug routes via Clerk
 
 ### Layout Structure
 1. **Root Layout** (`app/layout.tsx`): SEO metadata, font setup, ConvexProvider
@@ -75,7 +73,7 @@ applying-myself-next/
 ### Key Features
 - **Credit System**: Pay-per-use model (1 credit for job extraction/resume upload, 3 credits for cover letter)
 - **Multi-Environment**: Development, staging, production configurations
-- **Real-time Backend**: Convex handles authentication, database, and API
+- **Real-time Backend**: Convex handles database/API while Clerk handles auth identity
 - **Responsive Design**: Mobile-first with Tailwind CSS
 - **SEO Optimized**: Structured data, metadata, sitemap generation
 
@@ -84,21 +82,21 @@ applying-myself-next/
 ### Available Scripts
 ```bash
 # Development
-npm run dev                 # Start dev server with HTTPS & Turbopack
-npm run dev:clean          # Clean build and start dev
-npm run dev:staging        # Start staging development
+bun run dev                 # Start dev server with HTTPS & Turbopack
+bun run dev:clean          # Clean build and start dev
+bun run dev:staging        # Start staging development
 
 # Build & Deploy
-npm run build              # Production build + sitemap generation
-npm run start              # Start production server
-npm run deploy:staging     # Deploy to staging
-npm run deploy:production  # Deploy to production
+bun run build              # Production build + sitemap generation
+bun run start              # Start production server
+bun run deploy:staging     # Deploy to staging
+bun run deploy:production  # Deploy to production
 
 # Utilities
-npm run lint               # ESLint code checking
-npm run generate-api       # Generate Convex API types
-npm run sitemap           # Generate sitemap
-npm run validate-seo      # Validate SEO setup
+bun run lint               # ESLint code checking
+bun run generate-api       # Generate Convex API types
+bun run sitemap           # Generate sitemap
+bun run validate-seo      # Validate SEO setup
 ```
 
 ### Environment Configuration

@@ -1,3 +1,20 @@
+import type {
+  BackgroundToPopupMessage,
+  MessageResponse,
+  PopupToBackgroundMessage,
+  PopupToContentMessage,
+  RuntimeMessage,
+} from "@/core/contracts/messages";
+import type { StorageSchemaV1 } from "@/core/storage/schema";
+
+export type {
+  BackgroundToPopupMessage,
+  MessageResponse,
+  PopupToBackgroundMessage,
+  PopupToContentMessage,
+  RuntimeMessage,
+};
+
 export interface ChromeTab extends chrome.tabs.Tab {
   id: number;
   url: string;
@@ -6,68 +23,59 @@ export interface ChromeTab extends chrome.tabs.Tab {
   windowId: number;
 }
 
-export interface ChromeMessage {
-  type: string;
-  payload?: any;
-  tabId?: number;
-  eventName?: string;
-  properties?: Record<string, any>;
-}
-
-export interface ChromeResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 export interface ChromeStorage {
-  get(keys: string | string[] | object | null): Promise<{ [key: string]: any }>;
-  set(items: object): Promise<void>;
+  get(keys: string | string[] | object | null): Promise<Partial<StorageSchemaV1>>;
+  set(items: Partial<StorageSchemaV1>): Promise<void>;
   remove(keys: string | string[]): Promise<void>;
   clear(): Promise<void>;
 }
 
 export interface ChromeRuntime {
-  sendMessage(message: ChromeMessage): Promise<any>;
+  sendMessage<TResponse = unknown>(message: RuntimeMessage): Promise<TResponse>;
   onMessage: {
-    addListener(callback: (message: ChromeMessage, sender: any) => void): void;
-    removeListener(callback: (message: ChromeMessage, sender: any) => void): void;
+    addListener(
+      callback: (message: RuntimeMessage, sender: chrome.runtime.MessageSender) => void
+    ): void;
+    removeListener(
+      callback: (message: RuntimeMessage, sender: chrome.runtime.MessageSender) => void
+    ): void;
   };
 }
+
+// Backward-compatible aliases during migration.
+export type ChromeMessage = RuntimeMessage;
+export type ChromeResponse<T = unknown> = MessageResponse<T>;
+export type ContentScriptMessage = PopupToContentMessage;
+export type BackgroundMessage = PopupToBackgroundMessage;
 
 declare global {
   namespace chrome {
     interface Tabs {
-      query(queryInfo: object): Promise<ChromeTab[]>;
-      sendMessage(tabId: number, message: ChromeMessage): Promise<any>;
+      query(queryInfo: chrome.tabs.QueryInfo): Promise<ChromeTab[]>;
+      sendMessage<TResponse = unknown>(tabId: number, message: PopupToContentMessage): Promise<TResponse>;
     }
 
     interface Storage {
       local: ChromeStorage;
-      sync: ChromeStorage;
+      sync: {
+        get(keys: string | string[] | object | null): Promise<Partial<StorageSchemaV1>>;
+        set(items: Partial<StorageSchemaV1>): Promise<void>;
+        remove(keys: string | string[]): Promise<void>;
+        clear(): Promise<void>;
+      };
     }
 
     interface Runtime {
-      sendMessage(message: ChromeMessage): Promise<any>;
+      sendMessage<TResponse = unknown>(message: RuntimeMessage): Promise<TResponse>;
       onMessage: {
-        addListener(callback: (message: ChromeMessage, sender: any) => void): void;
-        removeListener(callback: (message: ChromeMessage, sender: any) => void): void;
+        addListener(
+          callback: (message: RuntimeMessage, sender: chrome.runtime.MessageSender) => void
+        ): void;
+        removeListener(
+          callback: (message: RuntimeMessage, sender: chrome.runtime.MessageSender) => void
+        ): void;
       };
       lastError?: { message: string };
     }
-
-
   }
-}
-
-// Content Script Types
-export interface ContentScriptMessage {
-  type: 'EXTRACT_JOB_DATA' | 'OPEN_POPUP' | 'RELOAD_EXTENSION' | 'EXTRACT_PAGE_CONTENT' | 'GET_PAGE_DATA' | 'PING';
-  data?: any;
-}
-
-// Background Script Types
-export interface BackgroundMessage {
-  type: 'OPEN_POPUP' | 'GET_CURRENT_TAB' | 'EXTRACT_JOB';
-  tabId?: number;
 }

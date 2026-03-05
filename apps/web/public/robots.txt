@@ -1,26 +1,11 @@
-# Robots.txt for Applying Myself (CoverCraft)
+# Robots.txt for Applying Myself
 # https://applyingmyself.com/robots.txt
 
 User-agent: *
 Allow: /
-Disallow: /admin/
 Disallow: /dashboard/
 Disallow: /api/
-Disallow: /test-stripe/
 Disallow: /_next/
-Disallow: /convex/
 
-# Allow important pages for SEO
-Allow: /
-Allow: /help
-Allow: /privacy
-Allow: /terms
-Allow: /contact
-Allow: /login
-Allow: /register
-
-# Sitemap location
+# Sitemap
 Sitemap: https://applyingmyself.com/sitemap.xml
-
-# Crawl delay (optional - be nice to servers)
-Crawl-delay: 1 

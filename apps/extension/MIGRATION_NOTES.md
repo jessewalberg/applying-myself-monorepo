@@ -43,7 +43,7 @@ This Chrome extension has been migrated from using Cloudflare Workers as the bac
 - **Better Error Handling**: Enhanced error messages and logging
 
 ### 🔧 Development Workflow
-- **Unified Dev Script**: Single command for development (`npm run dev`)
+- **Unified Dev Script**: Single command for development (`bun run dev`)
 - **Auto-reload**: Automatic extension reloading on file changes
 - **Environment Separation**: Clear dev/prod configuration separation
 

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@applyingmyself/convex-client": ["packages/convex-client/src/index.d.ts"],
+      "@applyingmyself/runtime-config": ["packages/runtime-config/src/index.d.ts"]
+    }
+  }
+}

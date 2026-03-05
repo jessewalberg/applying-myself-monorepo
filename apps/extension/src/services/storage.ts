@@ -1,59 +1,47 @@
-import type { User, UserSettings, StorageData } from '@/types';
+import type { User, UserSettings } from "@/types";
+import {
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from "@/core/storage/sessionStorage";
+import {
+  clearAllStorage,
+  getSettings,
+  getUserData,
+  setSettings,
+  setUserData,
+} from "@/core/storage/userStorage";
 
 export class StorageService {
   static async setToken(token: string): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ authToken: token }, resolve);
-    });
+    await setAuthToken(token);
   }
 
   static async getToken(): Promise<string | undefined> {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(['authToken'], (result: StorageData) => {
-        resolve(result.authToken);
-      });
-    });
+    return getAuthToken();
   }
 
   static async clearToken(): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.local.remove(['authToken'], resolve);
-    });
+    await clearAuthToken();
   }
 
   static async setUserData(userData: User): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ userData }, resolve);
-    });
+    await setUserData(userData);
   }
 
   static async getUserData(): Promise<User | undefined> {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(['userData'], (result: StorageData) => {
-        resolve(result.userData);
-      });
-    });
+    return getUserData();
   }
 
   static async setSettings(settings: UserSettings): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.sync.set({ settings }, resolve);
-    });
+    await setSettings(settings);
   }
 
   static async getSettings(): Promise<UserSettings | undefined> {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['settings'], (result: { settings?: UserSettings }) => {
-        resolve(result.settings);
-      });
-    });
+    return getSettings();
   }
 
   static async clearAll(): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.local.clear(() => {
-        chrome.storage.sync.clear(resolve);
-      });
-    });
+    await clearAllStorage();
   }
 }

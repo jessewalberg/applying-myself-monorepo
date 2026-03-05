@@ -7,18 +7,18 @@ export const CREDITS = {
   RESUME_TEXT_EXTRACTION: 2,
   
   // Plan credits
-  FREE_TIER_CREDITS: 10,
-  FREE_SIGNUP_BONUS: 10, // Same as free tier credits
+  NONE_TIER_CREDITS: 10,
+  NONE_SIGNUP_BONUS: 10,
   STARTER_CREDITS: 100,
   PRO_CREDITS: 500,
-  ENTERPRISE_CREDITS: 2000,
+  HIRED_CREDITS: 2000,
 } as const;
 
 export const PLANS = {
-  FREE: "free",
+  NONE: "none",
   STARTER: "starter", 
   PRO: "pro",
-  ENTERPRISE: "enterprise",
+  HIRED: "hired",
 } as const;
 
 export const SUBSCRIPTION_STATUS = {
@@ -72,7 +72,7 @@ export const AI_LIMITS = {
   MIN_PASSWORD_LENGTH: 8,
   
   // Plan limits
-  free: {
+  none: {
     maxCoverLetters: 5,
     maxResumes: 3,
     maxJobExtractions: 10,
@@ -93,7 +93,7 @@ export const AI_LIMITS = {
     credits: 500,
     monthlyCredits: 500,
   },
-  enterprise: {
+  hired: {
     maxCoverLetters: 1000,
     maxResumes: 200,
     maxJobExtractions: 2000,

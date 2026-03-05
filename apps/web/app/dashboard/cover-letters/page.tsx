@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DocumentTextIcon, PlusIcon, ClockIcon, CheckCircleIcon, EyeIcon } from "@heroicons/react/24/outline";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convexApi";
+import { api } from '@applyingmyself/convex-client';
 import { Dropdown } from "@/components/ui/Dropdown";
 import { type GenericId as Id } from "convex/values";
 
@@ -16,7 +16,6 @@ export default function CoverLettersPage() {
     ensureUserProfile({}).then(() => setProfileEnsured(true));
   }, [ensureUserProfile]);
 
-  // Fetch cover letters from Convex
   const coverLettersQuery = useQuery(api.coverLetters.getCoverLetters, profileEnsured ? {} : "skip");
   const coverLetters: Array<{
     _creationTime: number;
@@ -37,7 +36,6 @@ export default function CoverLettersPage() {
   }> = coverLettersQuery?.coverLetters || [];
   const isLoading = coverLettersQuery === undefined;
 
-  // Calculate stats
   const thisMonth = new Date();
   thisMonth.setDate(1);
   thisMonth.setHours(0, 0, 0, 0);
@@ -46,10 +44,8 @@ export default function CoverLettersPage() {
     (letter.createdAt || letter._creationTime) >= thisMonth.getTime()
   ).length;
 
-  // Filter state
   const [filterBy, setFilterBy] = useState("all");
 
-  // Filter cover letters based on selected option
   const filteredCoverLetters = coverLetters.filter(letter => {
     const letterDate = new Date(letter.createdAt || letter._creationTime);
     const now = new Date();
@@ -74,14 +70,16 @@ export default function CoverLettersPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cover Letters</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="font-display text-3xl text-foreground">
+            Cover Letters<span className="text-primary">.</span>
+          </h1>
+          <p className="mt-2 text-muted-foreground">
             Generate personalized cover letters for your job applications.
           </p>
         </div>
         <Link
           href="/dashboard/cover-letters/new"
-          className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg flex items-center space-x-2"
+          className="btn-primary flex items-center space-x-2"
         >
           <PlusIcon className="w-5 h-5" />
           <span>Generate Cover Letter</span>
@@ -90,52 +88,52 @@ export default function CoverLettersPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+        <div className="rounded-xl p-5 bg-card/60 border border-border/50">
           <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <DocumentTextIcon className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <DocumentTextIcon className="w-6 h-6 text-primary" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Generated</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Total Generated</p>
+              <p className="text-2xl font-semibold text-foreground">
                 {isLoading ? "..." : coverLetters.length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+        <div className="rounded-xl p-5 bg-card/60 border border-border/50">
           <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircleIcon className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-emerald-500/10 rounded-lg">
+              <CheckCircleIcon className="w-6 h-6 text-emerald-400" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">This Month</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">This Month</p>
+              <p className="text-2xl font-semibold text-foreground">
                 {isLoading ? "..." : thisMonthCount}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+        <div className="rounded-xl p-5 bg-card/60 border border-border/50">
           <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <ClockIcon className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-blue-500/10 rounded-lg">
+              <ClockIcon className="w-6 h-6 text-blue-400" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Average Time</p>
-              <p className="text-2xl font-semibold text-gray-900">30s</p>
+              <p className="text-sm font-medium text-muted-foreground">Average Time</p>
+              <p className="text-2xl font-semibold text-foreground">30s</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Cover Letters List */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+      <div className="rounded-xl p-6 bg-card/60 border border-border/50">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Your Cover Letters</h2>
+            <h2 className="text-lg font-semibold text-foreground">Your Cover Letters</h2>
             {!isLoading && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Showing {filteredCoverLetters.length} of {coverLetters.length} cover letters
               </p>
             )}
@@ -158,62 +156,62 @@ export default function CoverLettersPage() {
 
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading cover letters...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading cover letters...</p>
           </div>
         ) : filteredCoverLetters.length === 0 && coverLetters.length > 0 ? (
           <div className="text-center py-12">
-            <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No cover letters match your filter</h3>
-            <p className="text-gray-500 mb-6">
+            <DocumentTextIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No cover letters match your filter</h3>
+            <p className="text-muted-foreground mb-6">
               Try selecting a different filter option to see your cover letters.
             </p>
             <button
               onClick={() => setFilterBy("all")}
-              className="text-purple-600 hover:text-purple-700 font-medium"
+              className="text-primary hover:text-primary/80 font-medium"
             >
               Show All Cover Letters
             </button>
           </div>
         ) : coverLetters.length === 0 ? (
           <div className="text-center py-12">
-            <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No cover letters yet</h3>
-            <p className="text-gray-500 mb-6">
+            <DocumentTextIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">No cover letters yet</h3>
+            <p className="text-muted-foreground mb-6">
               Generate your first cover letter to get started!
             </p>
             <Link
               href="/dashboard/cover-letters/new"
-              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
+              className="btn-primary"
             >
               Generate Your First Cover Letter
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filteredCoverLetters.map((letter) => (
-              <div key={letter._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+              <div key={letter._id} className="border border-border/60 rounded-lg p-4 bg-background/60 hover:border-border transition-colors">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-gray-900">
+                    <h3 className="font-medium text-foreground">
                       {letter.jobTitle || 'Cover Letter'}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {letter.company || 'Unknown Company'}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground/70 mt-1">
                       {new Date(letter.createdAt || letter._creationTime).toLocaleDateString()} at{' '}
                       {new Date(letter.createdAt || letter._creationTime).toLocaleTimeString()}
                     </p>
                     <div className="mt-1">
                       {letter.content === "Generating your personalized cover letter..." ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          <div className="animate-spin rounded-full h-2 w-2 border-b border-yellow-600 mr-1"></div>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400">
+                          <div className="animate-spin rounded-full h-2 w-2 border-b border-amber-400 mr-1"></div>
                           Generating...
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          ✓ Complete
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
+                          &#10003; Complete
                         </span>
                       )}
                     </div>
@@ -221,7 +219,7 @@ export default function CoverLettersPage() {
                   <div className="flex space-x-2">
                     <Link
                       href={`/dashboard/cover-letters/${letter._id}`}
-                      className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center space-x-1 transition-colors"
+                      className="text-primary hover:text-primary/80 text-sm font-medium flex items-center space-x-1 transition-colors"
                     >
                       <EyeIcon className="w-4 h-4" />
                       <span>View</span>

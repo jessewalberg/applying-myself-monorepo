@@ -1,8 +1,10 @@
 export default {
   providers: [
     {
-      domain: process.env.CONVEX_SITE_URL || "https://dazzling-badger-1.convex.cloud",
-      applicationID: "convex",
+      // Clerk JWT issuer domain, for example:
+      // https://clerk.applyingmyself.com
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN || "https://clerk.invalid",
+      applicationID: process.env.CLERK_JWT_AUDIENCE || "convex",
     },
   ],
 };

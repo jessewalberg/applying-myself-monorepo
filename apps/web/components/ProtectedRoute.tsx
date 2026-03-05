@@ -1,6 +1,6 @@
 "use client";
 
-import { useConvexAuth } from "convex/react";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
-  const { isLoading, isAuthenticated } = useConvexAuth();
+  const { isLoaded, userId } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -23,28 +23,28 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (mounted && !isLoading && !isAuthenticated) {
+    if (mounted && isLoaded && !userId) {
       router.push("/login");
     }
-  }, [mounted, isLoading, isAuthenticated, router]);
+  }, [mounted, isLoaded, userId, router]);
 
   // Show loading during mounting or auth loading
-  if (!mounted || isLoading) {
+  if (!mounted || !isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   // If not authenticated, show fallback or nothing while redirecting
-  if (!isAuthenticated) {
+  if (!userId) {
     return fallback || null;
   }
 
   // Only render children if authenticated
   return <>{children}</>;
-} 
+}
