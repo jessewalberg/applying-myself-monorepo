@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from 'convex/react';
-import { api, type Id } from '@app/convex-client';
+import { api, type Id } from '@applyingmyself/convex-client';
 import { useParams, useRouter } from 'next/navigation';
 
 export default function ReceiptDetailsPage() {

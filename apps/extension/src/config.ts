@@ -2,7 +2,7 @@ import {
   detectRuntimeEnv,
   resolveRuntimeConfig,
   type RuntimeEnv,
-} from "@app/runtime-config";
+} from "@applyingmyself/runtime-config";
 
 interface Config {
   CONVEX_URL: string;

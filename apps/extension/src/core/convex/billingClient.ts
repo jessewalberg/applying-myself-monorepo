@@ -1,4 +1,4 @@
-import { api } from "@app/convex-client";
+import { api } from "@applyingmyself/convex-client";
 import { convexClient, isConvexAuthenticated } from "./client";
 
 export const createBillingSession = async (priceId: string): Promise<{ url: string }> => {

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "paths": {
+      "@applyingmyself/convex-client": ["../convex-client/src/index.d.ts"],
+      "@applyingmyself/runtime-config": ["../runtime-config/src/index.d.ts"]
+    }
+  },
+  "include": ["src", "tailwind-preset.ts"]
+}

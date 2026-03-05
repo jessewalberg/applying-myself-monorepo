@@ -21,10 +21,10 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+    <div className="rounded-xl p-6 bg-card/60 border border-border/50">
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-        <p className="text-sm text-gray-600">
+        <h2 className="text-lg font-semibold text-foreground">Profile Information</h2>
+        <p className="text-sm text-muted-foreground">
           Update your account profile information and email address.
         </p>
       </div>
@@ -32,95 +32,95 @@ export default function ProfilePage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+            <label className="form-label">Full Name</label>
             <input
               type="text"
               value={profileData.name}
               onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+              className="input-field"
               placeholder="John Doe"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+            <label className="form-label">Email</label>
             <input
               type="email"
               value={profileData.email}
               onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+              className="input-field"
               placeholder="john@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
+            <label className="form-label">Phone</label>
             <input
               type="tel"
               value={profileData.phone}
               onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+              className="input-field"
               placeholder="+1 (555) 123-4567"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+          <label className="form-label">Location</label>
           <input
             type="text"
             value={profileData.location}
             onChange={(e) => setProfileData(prev => ({ ...prev, location: e.target.value }))}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+            className="input-field"
             placeholder="San Francisco, CA"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Website</label>
+            <label className="form-label">Website</label>
             <input
               type="url"
               value={profileData.website}
               onChange={(e) => setProfileData(prev => ({ ...prev, website: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+              className="input-field"
               placeholder="https://yourwebsite.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">LinkedIn</label>
+            <label className="form-label">LinkedIn</label>
             <input
               type="url"
               value={profileData.linkedIn}
               onChange={(e) => setProfileData(prev => ({ ...prev, linkedIn: e.target.value }))}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+              className="input-field"
               placeholder="https://linkedin.com/in/username"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">GitHub</label>
+          <label className="form-label">GitHub</label>
           <input
             type="url"
             value={profileData.github}
             onChange={(e) => setProfileData(prev => ({ ...prev, github: e.target.value }))}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+            className="input-field"
             placeholder="https://github.com/username"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Bio</label>
+          <label className="form-label">Bio</label>
           <textarea
             value={profileData.bio}
             onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
             rows={4}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all"
+            className="input-field"
             placeholder="Tell us about yourself..."
           />
         </div>
 
         <div className="flex justify-end">
-          <button type="submit" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg">
+          <button type="submit" className="btn-primary">
             Save Changes
           </button>
         </div>

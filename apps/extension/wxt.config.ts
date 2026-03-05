@@ -1,7 +1,7 @@
 import { defineConfig } from "wxt";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { detectRuntimeEnv, resolveRuntimeConfig, type RuntimeEnv } from "@app/runtime-config";
+import { detectRuntimeEnv, resolveRuntimeConfig, type RuntimeEnv } from "@applyingmyself/runtime-config";
 
 const resolveEnv = (): RuntimeEnv => {
   const raw = process.env.WXT_MODE || process.env.NODE_ENV || "development";
@@ -84,7 +84,7 @@ export default defineConfig({
     name: meta.name,
     version: "1.0.0",
     description: meta.description,
-    permissions: ["activeTab", "storage", "scripting", "contextMenus", "cookies"],
+    permissions: ["activeTab", "storage", "scripting", "contextMenus", "cookies", "sidePanel"],
     host_permissions: [...new Set([...hostPermissions[env], ...clerkHostPermissions])],
     action: {
       default_title: meta.title,
@@ -107,5 +107,8 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
+    side_panel: {
+      default_path: "sidepanel.html",
+    },
   },
 });

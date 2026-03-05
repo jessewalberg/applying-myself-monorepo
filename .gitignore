@@ -9,6 +9,9 @@ apps/web/out/
 apps/extension/dist/
 apps/extension/.wxt/
 artifacts/
+.turbo/
+**/.turbo/
+*.tsbuildinfo
 
 # Env
 **/.env

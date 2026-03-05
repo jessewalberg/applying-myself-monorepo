@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { HomePageClient } from "./HomePageClient";
+import HomePageClient from "./HomePageClient";
+import { StructuredData, organizationSchema, webApplicationSchema, serviceSchema } from "@/components/StructuredData";
 
 export const metadata: Metadata = {
   title: "AI Cover Letter Generator - Free & Personalized",
@@ -40,5 +41,12 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <HomePageClient />;
+  return (
+    <>
+      <StructuredData data={organizationSchema} />
+      <StructuredData data={webApplicationSchema} />
+      <StructuredData data={serviceSchema} />
+      <HomePageClient />
+    </>
+  );
 }

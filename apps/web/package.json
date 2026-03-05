@@ -1,5 +1,5 @@
 {
-  "name": "applying-myself-next",
+  "name": "@applyingmyself/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -19,13 +19,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@app/convex-client": "workspace:*",
-    "@app/runtime-config": "workspace:*",
+    "@applyingmyself/convex-client": "workspace:*",
+    "@applyingmyself/runtime-config": "workspace:*",
+    "@applyingmyself/ui": "workspace:*",
     "@clerk/nextjs": "^6.39.0",
     "@heroicons/react": "^2.2.0",
     "@vercel/analytics": "^1.5.0",
     "autoprefixer": "^10.4.21",
-    "convex": "^1.24.8",
+    "convex": "^1.32.0",
     "docx": "^9.5.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",

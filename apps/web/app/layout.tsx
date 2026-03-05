@@ -1,7 +1,26 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ConvexProvider } from "@/components/ConvexProvider";
 import { Analytics } from "@vercel/analytics/next";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -27,7 +46,6 @@ export const metadata: Metadata = {
   applicationName: "Applying Myself",
   generator: "Next.js",
   referrer: "origin-when-cross-origin",
-  colorScheme: "light",
   robots: {
     index: true,
     follow: true,
@@ -84,17 +102,16 @@ export const metadata: Metadata = {
   },
   category: "technology",
   classification: "Business Software",
-  other: {
-    "google-site-verification": "your-google-site-verification-code",
-  },
+  // Set google-site-verification after registering with Google Search Console:
+  // other: { "google-site-verification": "YOUR_CODE_HERE" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#7c3aed" },
-    { media: "(prefers-color-scheme: dark)", color: "#7c3aed" }
+    { media: "(prefers-color-scheme: light)", color: "#d97706" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0d0a" }
   ],
 };
 
@@ -104,8 +121,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased bg-white text-gray-900">
+    <html lang="en" className={`${plusJakarta.variable} ${fraunces.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased bg-background text-foreground">
         <ConvexProvider>
           {children}
         </ConvexProvider>
