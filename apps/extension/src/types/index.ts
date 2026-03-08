@@ -6,6 +6,7 @@ export interface User {
     name: string;
     credits: number;
     plan: 'none' | 'starter' | 'pro' | 'hired';
+    isAdmin?: boolean;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -42,7 +43,13 @@ export interface CoverLetter {
     resumeId: string;
     jobTitle: string | null;
     company: string | null;
+    jobDescription?: string | null;
     content: string;
+    generationStatus: "pending" | "completed" | "failed";
+    generationError: string | null;
+    generationAttempts: number;
+    lastGenerationAttemptAt?: string | null;
+    tokensUsed?: number | null;
     creditsUsed: number;
     preferences: string | null;
     createdAt: string;
@@ -126,7 +133,13 @@ export interface GenerateCoverLetterResponse {
         resumeId: string;
         jobTitle: string | null;
         company: string | null;
+        jobDescription?: string | null;
         content: string;
+        generationStatus: "pending" | "completed" | "failed";
+        generationError: string | null;
+        generationAttempts: number;
+        lastGenerationAttemptAt?: string | null;
+        tokensUsed?: number | null;
         creditsUsed: number;
         preferences: string | null;
         createdAt: string;

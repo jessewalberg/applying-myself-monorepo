@@ -1,6 +1,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { generateCoverLetter as generateCoverLetterWithOpenRouter } from "../lib/ai";
 
 export const generateCoverLetter = action({
   args: {
@@ -20,92 +21,58 @@ export const generateCoverLetter = action({
     tokensUsed: v.number(),
   }),
   handler: async (ctx, args) => {
-    console.log("Generating cover letter for:", args.company, args.jobTitle);
+    console.info("[convex.ai.generateCoverLetter] started", {
+      coverLetterId: args.coverLetterId,
+      company: args.company,
+      jobTitle: args.jobTitle,
+    });
     
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error("OpenAI API key not configured");
+      throw new Error("OpenRouter API key not configured");
     }
 
     let coverLetterContent: string;
     let tokensUsed = 0;
 
     try {
-      const tone = args.preferences?.tone || "professional";
-      const focus = args.preferences?.focus || "experience";
-      const length = args.preferences?.length || "medium";
-
-      const prompt = `Write a compelling cover letter for this job application:
-
-Job Title: ${args.jobTitle}
-Company: ${args.company}
-Job Description: ${args.jobDescription}
-
-Candidate Resume:
-${args.resumeText}
-
-Instructions:
-- Tone: ${tone}
-- Focus on: ${focus}
-- Length: ${length}
-- Write in first person as the candidate
-- Be specific and connect resume experience to job requirements
-- Include 2-3 relevant achievements or skills
-- Professional formatting
-- No placeholder text or brackets
-- End with a call to action
-
-Generate a personalized cover letter that will get this candidate noticed:`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+      const result = await generateCoverLetterWithOpenRouter(
+        {
+          title: args.jobTitle,
+          company: args.company,
+          description: args.jobDescription,
+          requirements: [],
+          skills: [],
+          benefits: [],
         },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert cover letter writer who creates compelling, personalized cover letters that get results.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 600
-        })
+        args.resumeText,
+        args.preferences
+      );
+      coverLetterContent = result.content;
+      tokensUsed = result.tokensUsed;
+
+      console.info("[convex.ai.generateCoverLetter] completed", {
+        coverLetterId: args.coverLetterId,
+        tokensUsed,
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      coverLetterContent = result.choices[0].message.content;
-      tokensUsed = result.usage?.total_tokens || 0;
-
-      console.log(`AI cover letter generated successfully, tokens used: ${tokensUsed}`);
-
     } catch (error) {
-      console.error("AI generation failed:", error);
-      
-      // Simple fallback
-      coverLetterContent = `Dear Hiring Manager,
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown OpenRouter generation error";
+      console.error("[convex.ai.generateCoverLetter] failed", {
+        coverLetterId: args.coverLetterId,
+        error: errorMessage,
+      });
 
-I am excited to apply for the ${args.jobTitle} position at ${args.company}.
+      await ctx.runMutation(api.coverLetters.updateContent, {
+        coverLetterId: args.coverLetterId,
+        content: "Cover letter generation failed. Retry to try again.",
+        generationStatus: "failed",
+        generationError: errorMessage,
+        tokensUsed: 0,
+      });
 
-Based on my background and the role requirements, I believe I would be a strong addition to your team. My experience aligns well with what you're looking for, and I'm eager to contribute to ${args.company}'s continued success.
-
-Thank you for considering my application. I look forward to discussing how I can contribute to your team.
-
-Best regards,
-[Your Name]`;
-
-      tokensUsed = 50;
+      throw error;
     }
 
     // Update the cover letter with generated content
@@ -113,6 +80,8 @@ Best regards,
       coverLetterId: args.coverLetterId,
       content: coverLetterContent,
       tokensUsed,
+      generationStatus: "completed",
+      generationError: null,
     });
 
     return {

@@ -23,3 +23,6 @@ artifacts/
 # IDE
 .vscode/
 .vercel
+
+# Docs
+*.md

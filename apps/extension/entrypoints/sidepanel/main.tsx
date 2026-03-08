@@ -19,12 +19,22 @@ if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
     </React.StrictMode>
   );
 } else {
+  const sidepanelUrl = chrome.runtime.getURL("sidepanel.html?mode=sign-in");
+
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <ClerkProvider
         publishableKey={CONFIG.CLERK.PUBLISHABLE_KEY}
-        syncHost={CONFIG.CLERK.SYNC_HOST}
-        __experimental_syncHostListener
+        allowedRedirectProtocols={["chrome-extension:"]}
+        signInFallbackRedirectUrl={sidepanelUrl}
+        signUpFallbackRedirectUrl={sidepanelUrl}
+        afterSignOutUrl={sidepanelUrl}
+        {...(CONFIG.CLERK.SYNC_HOST
+          ? {
+              syncHost: CONFIG.CLERK.SYNC_HOST,
+              __experimental_syncHostListener: true,
+            }
+          : {})}
       >
         <SidePanel />
       </ClerkProvider>

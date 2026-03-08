@@ -26,30 +26,70 @@ interface CoverLetterPreferences {
   length?: 'short' | 'medium' | 'long';
 }
 
-interface OpenAIUsage {
+interface ChatCompletionUsage {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
 }
 
-interface OpenAIMessage {
+interface ChatCompletionMessage {
   role: string;
   content: string;
 }
 
-interface OpenAIChoice {
+interface ChatCompletionChoice {
   index: number;
-  message: OpenAIMessage;
+  message: ChatCompletionMessage;
   finish_reason: string;
 }
 
-interface OpenAIResponse {
+interface ChatCompletionResponse {
   id: string;
   object: string;
   created: number;
   model: string;
-  choices: OpenAIChoice[];
-  usage: OpenAIUsage;
+  choices: ChatCompletionChoice[];
+  usage: ChatCompletionUsage;
+}
+
+interface ChatCompletionRequest {
+  model: string;
+  messages: ChatCompletionMessage[];
+  temperature: number;
+  max_tokens: number;
+  response_format?: { type: "json_object" };
+}
+
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o";
+
+function getOpenRouterApiKey() {
+  return process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+}
+
+async function createChatCompletion(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey) {
+    throw new Error("OpenRouter API key not configured");
+  }
+
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://applyingmyself.com",
+      "X-Title": process.env.OPENROUTER_APP_NAME || "ApplyingMyself",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return await response.json() as ChatCompletionResponse;
 }
 
 // Extract job information from HTML content
@@ -59,11 +99,11 @@ export async function extractJobFromHTML(
   title: string, 
   maxTokens = 15000
 ) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
     return {
       success: false,
-      error: "OpenAI API key not configured",
+      error: "OpenRouter API key not configured",
       jobData: null,
       confidence: 0,
       tokensUsed: 0
@@ -131,36 +171,22 @@ Use your best judgement to extract the information. Use null for missing fields.
 `;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a precise content analyzer. Extract only accurate information that is clearly stated in the content. Return valid JSON only.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 1000,
-        response_format: { type: 'json_object' }
-      })
+    const result = await createChatCompletion({
+      model: process.env.OPENROUTER_EXTRACTION_MODEL || DEFAULT_OPENROUTER_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are a precise content analyzer. Extract only accurate information that is clearly stated in the content. Return valid JSON only.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 1000,
+      response_format: { type: "json_object" },
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const result = await response.json() as OpenAIResponse;
     const extractedText = result.choices[0].message.content;
 
     // Parse JSON response
@@ -218,9 +244,9 @@ export async function generateCoverLetter(
   resumeText: string, 
   preferences: CoverLetterPreferences = {}
 ) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
-    throw new Error("OpenAI API key not configured");
+    throw new Error("OpenRouter API key not configured");
   }
 
   // Truncate resume text to avoid token limits
@@ -265,35 +291,21 @@ Generate the cover letter now:
 `;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert cover letter writer who creates compelling, personalized cover letters that get results. Write professionally but with personality that matches the specified tone.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 800
-      })
+    const result = await createChatCompletion({
+      model: process.env.OPENROUTER_GENERATION_MODEL || DEFAULT_OPENROUTER_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert cover letter writer who creates compelling, personalized cover letters that get results. Write professionally but with personality that matches the specified tone.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 800,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const result = await response.json() as OpenAIResponse;
     const coverLetterContent = result.choices[0].message.content;
 
     return {

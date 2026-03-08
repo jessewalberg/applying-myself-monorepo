@@ -353,6 +353,7 @@ export const getUserProfile = query({
     name: v.string(),
     plan: v.union(v.literal("none"), v.literal("starter"), v.literal("pro"), v.literal("hired")),
     credits: v.number(),
+    isAdmin: v.boolean(),
     stripeCustomerId: v.optional(v.string()),
     subscriptionStatus: v.optional(
       v.union(
@@ -377,6 +378,7 @@ export const getUserProfile = query({
       name: userProfile.name,
       plan: normalizePlan(userProfile.plan),
       credits: userProfile.credits || 0,
+      isAdmin: !!userProfile.isAdmin,
       stripeCustomerId: userProfile.stripeCustomerId,
       subscriptionStatus: userProfile.subscriptionStatus,
       createdAt: userProfile.createdAt,
@@ -521,6 +523,10 @@ export const getAllUsers = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
+    const caller = await getCurrentUserProfile(ctx);
+    if (!caller.isAdmin) {
+      throw new ConvexError("Admin access required");
+    }
     const limit = Math.min(Math.max(args.limit ?? 100, 1), 500);
     const users = await ctx.db.query("userProfiles").take(limit);
     return users.map((u) => ({
@@ -558,6 +564,10 @@ export const grantAdminAccess = mutation({
   },
   returns: v.object({ success: v.boolean(), message: v.string() }),
   handler: async (ctx, args) => {
+    const caller = await getCurrentUserProfile(ctx);
+    if (!caller.isAdmin) {
+      throw new ConvexError("Admin access required");
+    }
     const email = args.userEmail.toLowerCase().trim();
     const user = await ctx.db
       .query("userProfiles")
@@ -577,6 +587,10 @@ export const revokeAdminAccess = mutation({
   },
   returns: v.object({ success: v.boolean(), message: v.string() }),
   handler: async (ctx, args) => {
+    const caller = await getCurrentUserProfile(ctx);
+    if (!caller.isAdmin) {
+      throw new ConvexError("Admin access required");
+    }
     const email = args.userEmail.toLowerCase().trim();
     const user = await ctx.db
       .query("userProfiles")
@@ -587,6 +601,92 @@ export const revokeAdminAccess = mutation({
     }
     await ctx.db.patch(user._id, { isAdmin: false, updatedAt: Date.now() });
     return { success: true, message: `Revoked admin access for ${email}` };
+  },
+});
+
+export const adminAddCredits = mutation({
+  args: {
+    targetUserEmail: v.string(),
+    amount: v.number(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({ success: v.boolean(), newBalance: v.number(), message: v.string() }),
+  handler: async (ctx, args) => {
+    const caller = await getCurrentUserProfile(ctx);
+    if (!caller.isAdmin) {
+      throw new ConvexError("Admin access required");
+    }
+    if (args.amount <= 0) {
+      throw new ConvexError("Amount must be positive");
+    }
+
+    const email = args.targetUserEmail.toLowerCase().trim();
+    const targetUser = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!targetUser) {
+      throw new ConvexError("User not found");
+    }
+
+    const currentCredits = targetUser.credits || 0;
+    const newBalance = currentCredits + args.amount;
+    const now = Date.now();
+
+    await ctx.db.patch(targetUser._id, {
+      credits: newBalance,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("creditTransactions", {
+      userProfileId: targetUser._id,
+      type: "earned",
+      amount: args.amount,
+      balance: newBalance,
+      source: "admin-grant",
+      description: args.reason || `Admin credit grant by ${caller.email}`,
+      metadata: { grantedBy: caller._id, grantedByEmail: caller.email },
+      createdAt: now,
+    });
+
+    return {
+      success: true,
+      newBalance,
+      message: `Added ${args.amount} credits to ${email} (new balance: ${newBalance})`,
+    };
+  },
+});
+
+export const adminSetUserPlan = mutation({
+  args: {
+    targetUserEmail: v.string(),
+    plan: v.union(v.literal("none"), v.literal("starter"), v.literal("pro"), v.literal("hired")),
+  },
+  returns: v.object({ success: v.boolean(), message: v.string() }),
+  handler: async (ctx, args) => {
+    const caller = await getCurrentUserProfile(ctx);
+    if (!caller.isAdmin) {
+      throw new ConvexError("Admin access required");
+    }
+
+    const email = args.targetUserEmail.toLowerCase().trim();
+    const targetUser = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!targetUser) {
+      throw new ConvexError("User not found");
+    }
+
+    await ctx.db.patch(targetUser._id, {
+      plan: args.plan,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `Updated ${email} plan to ${args.plan}`,
+    };
   },
 });
 

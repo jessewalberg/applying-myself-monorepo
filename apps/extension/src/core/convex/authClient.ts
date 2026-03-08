@@ -12,6 +12,12 @@ import {
 
 type ClerkGetToken = (options?: { template?: string }) => Promise<string | null>;
 
+const logDev = (...args: unknown[]) => {
+  if (CONFIG.ENVIRONMENT === "development") {
+    console.log("[extension-auth]", ...args);
+  }
+};
+
 export const validateToken = async (): Promise<boolean> => {
   if (!isConvexAuthenticated()) return false;
 
@@ -54,12 +60,16 @@ export const initializeFromStorage = async (): Promise<boolean> => {
 };
 
 export const authenticateWithClerkToken = async (getToken: ClerkGetToken): Promise<boolean> => {
+  logDev("Requesting Clerk token", { template: CONFIG.CLERK.JWT_TEMPLATE });
   const token = await getToken({ template: CONFIG.CLERK.JWT_TEMPLATE });
   if (!token) {
+    logDev("Clerk token request returned null");
     clearConvexAuthToken();
     await StorageService.clearAll();
     return false;
   }
+
+  logDev("Clerk token received", { length: token.length });
 
   if (getConvexAuthToken() !== token) {
     setConvexAuthToken(token);
@@ -68,10 +78,12 @@ export const authenticateWithClerkToken = async (getToken: ClerkGetToken): Promi
 
   const isValid = await validateToken();
   if (!isValid) {
+    logDev("Convex token validation failed");
     return false;
   }
 
   await ensureUserProfile();
+  logDev("Convex auth bootstrap completed");
   return true;
 };
 
@@ -82,6 +94,7 @@ export const ensureUserProfile = async (): Promise<void> => {
     await convexClient.mutation(api.userHelpers.claimArchivedEntitlements, {});
   } catch (error) {
     console.error("Error ensuring user profile:", error);
+    logDev("ensureUserProfile failed", error);
   }
 };
 

@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Shield,
 } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from '@applyingmyself/convex-client';
@@ -44,6 +45,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   // Fetch user profile data
   const userProfile = useQuery(api.userHelpers.getUserProfile, profileEnsured ? {} : "skip");
+  const isAdmin = userProfile?.isAdmin ?? false;
 
   // Create user object for compatibility
   const user = userProfile ? {
@@ -103,6 +105,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { name: 'Resumes', href: '/dashboard/resumes', icon: FileText },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
+    ...(isAdmin ? [{ name: 'Admin', href: '/dashboard/admin', icon: Shield }] : []),
   ];
 
   // Helper function to check if route is active

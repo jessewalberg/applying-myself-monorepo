@@ -20,7 +20,7 @@ function printUsage() {
   console.log(`
 🚀 Chrome Extension Deployment Script
 
-Usage: bun scripts/deploy.js <environment> [options]
+Usage: bun scripts/deploy.cjs <environment> [options]
 
 Environments:
   development  - Build for development with hot reload
@@ -32,9 +32,9 @@ Options:
   --clean      - Clean dist directory before building
 
 Examples:
-  bun scripts/deploy.js staging --zip
-  bun scripts/deploy.js production --clean --zip
-  bun scripts/deploy.js development
+  bun scripts/deploy.cjs staging --zip
+  bun scripts/deploy.cjs production --clean --zip
+  bun scripts/deploy.cjs development
 `);
 }
 

@@ -69,15 +69,67 @@
   }
 }
 
-/* Clerk component overrides for dark theme */
-.cl-component {
-  --clerk-background: transparent !important;
+/* Clerk component overrides */
+.cl-rootBox,
+.cl-cardBox,
+.cl-card {
+  width: 100% !important;
 }
 .cl-card {
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
+  padding: 0 !important;
 }
 .cl-internal-b3fm6y {
   background: transparent !important;
+}
+.cl-main {
+  gap: 0.6rem !important;
+}
+.cl-socialButtons {
+  gap: 0.5rem !important;
+}
+.cl-socialButtonsBlockButton {
+  min-height: 2.25rem !important;
+  box-shadow: none !important;
+  background: hsl(var(--secondary)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+.cl-socialButtonsBlockButtonText {
+  color: hsl(var(--foreground)) !important;
+}
+.cl-formFieldInput {
+  box-shadow: none !important;
+}
+.cl-formButtonPrimary {
+  box-shadow: none !important;
+}
+.cl-footerActionText,
+.cl-identityPreviewText {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-footerActionLink,
+.cl-formResendCodeLink {
+  color: hsl(var(--primary)) !important;
+}
+.cl-formFieldInputShowPasswordButton {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-footer {
+  display: none !important;
+}
+
+/* Compact mode for popup */
+.auth-clerk-compact .cl-main {
+  gap: 0.5rem !important;
+}
+.auth-clerk-compact .cl-socialButtonsBlockButton {
+  min-height: 2.125rem !important;
+}
+.auth-clerk-compact .cl-formFieldInput {
+  min-height: 2.125rem !important;
+}
+.auth-clerk-compact .cl-formButtonPrimary {
+  min-height: 2.125rem !important;
 }

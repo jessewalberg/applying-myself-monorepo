@@ -26,7 +26,13 @@ export interface ConvexCoverLetterDoc {
   extractedJobId?: Id<"extractedJobs">;
   jobTitle?: string;
   company?: string;
+  jobDescription?: string;
   content: string;
+  generationStatus: "pending" | "completed" | "failed";
+  generationError?: string;
+  generationAttempts: number;
+  lastGenerationAttemptAt?: number;
+  tokensUsed?: number;
   creditsUsed: number;
   preferences?: unknown;
 }

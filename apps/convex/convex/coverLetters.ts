@@ -6,11 +6,69 @@ import { api } from "./_generated/api";
 import { CREDITS, PAGINATION, FILE_TYPES } from "./constants";
 import type { Doc, Id } from "./_generated/dataModel";
 
+type RetryableCoverLetterDoc = Doc<"coverLetters"> & {
+  jobDescription?: string;
+};
+
+type NormalizedCoverLetter = RetryableCoverLetterDoc & {
+  generationStatus: "pending" | "completed" | "failed";
+  generationError: string | null;
+  generationAttempts: number;
+  lastGenerationAttemptAt?: number;
+  tokensUsed?: number;
+  updatedAt?: number;
+};
+
 type GenerateCoverLetterResult = {
-  coverLetter: Doc<"coverLetters">;
+  coverLetter: NormalizedCoverLetter;
   tokensUsed: number;
   remainingCredits: number;
 };
+
+const COVER_LETTER_GENERATION_PLACEHOLDER =
+  "Generating your personalized cover letter...";
+
+const normalizeCoverLetter = (
+  coverLetter: RetryableCoverLetterDoc
+): NormalizedCoverLetter => ({
+  ...coverLetter,
+  generationStatus:
+    coverLetter.generationStatus ||
+    (coverLetter.content === COVER_LETTER_GENERATION_PLACEHOLDER
+      ? "pending"
+      : "completed"),
+  generationError: coverLetter.generationError ?? null,
+  generationAttempts: coverLetter.generationAttempts ?? 1,
+  lastGenerationAttemptAt:
+    coverLetter.lastGenerationAttemptAt ?? coverLetter.createdAt ?? coverLetter._creationTime,
+  tokensUsed: coverLetter.tokensUsed ?? 0,
+  updatedAt: coverLetter.updatedAt ?? coverLetter.createdAt ?? coverLetter._creationTime,
+});
+
+const coverLetterReturnValidator = v.object({
+  _id: v.id("coverLetters"),
+  userProfileId: v.id("userProfiles"),
+  extractedJobId: v.optional(v.id("extractedJobs")),
+  resumeId: v.id("resumes"),
+  jobTitle: v.optional(v.string()),
+  company: v.optional(v.string()),
+  jobDescription: v.optional(v.string()),
+  content: v.string(),
+  generationStatus: v.union(
+    v.literal("pending"),
+    v.literal("completed"),
+    v.literal("failed")
+  ),
+  generationError: v.optional(v.union(v.string(), v.null())),
+  generationAttempts: v.number(),
+  lastGenerationAttemptAt: v.optional(v.number()),
+  tokensUsed: v.optional(v.number()),
+  creditsUsed: v.number(),
+  preferences: v.optional(v.any()),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+  _creationTime: v.number(),
+});
 
 // Generate cover letter (creates placeholder, then schedules AI generation)
 export const generate = mutation({
@@ -37,19 +95,7 @@ export const generate = mutation({
     })),
   },
   returns: v.object({
-    coverLetter: v.object({
-      _id: v.id("coverLetters"),
-      userProfileId: v.id("userProfiles"),
-      extractedJobId: v.optional(v.id("extractedJobs")),
-      resumeId: v.id("resumes"),
-      jobTitle: v.optional(v.string()),
-      company: v.optional(v.string()),
-      content: v.string(),
-      creditsUsed: v.number(),
-      preferences: v.optional(v.any()),
-      createdAt: v.number(),
-      _creationTime: v.number(),
-    }),
+    coverLetter: coverLetterReturnValidator,
     tokensUsed: v.number(),
     remainingCredits: v.number(),
   }),
@@ -73,22 +119,38 @@ export const generate = mutation({
     }
 
     // Create placeholder cover letter
+    const now = Date.now();
     const coverLetterId: Id<"coverLetters"> = await ctx.db.insert("coverLetters", {
       userProfileId: userProfile._id,
       resumeId,
       jobTitle: extractedContent.title || undefined,
       company: extractedContent.company || undefined,
-      content: "Generating your personalized cover letter...",
+      jobDescription: extractedContent.description || undefined,
+      content: COVER_LETTER_GENERATION_PLACEHOLDER,
+      generationStatus: "pending",
+      generationAttempts: 1,
+      generationError: null,
+      lastGenerationAttemptAt: now,
+      tokensUsed: 0,
       creditsUsed: creditsRequired,
       preferences: preferences || undefined,
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
+    } as any);
+
+    console.info("[convex.coverLetters.generate] queued", {
+      coverLetterId,
+      userProfileId: userProfile._id,
+      resumeId,
+      company: extractedContent.company || null,
+      jobTitle: extractedContent.title || null,
     });
 
     // Deduct credits
     const newBalance = currentCredits - creditsRequired;
     await ctx.db.patch(userProfile._id, {
       credits: newBalance,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     // Log credit transaction
@@ -99,7 +161,7 @@ export const generate = mutation({
       balance: newBalance,
       source: "generate-cover-letter",
       description: "Cover letter generation",
-      createdAt: Date.now(),
+      createdAt: now,
     });
 
     // Schedule AI generation
@@ -112,13 +174,13 @@ export const generate = mutation({
       preferences,
     });
 
-    const coverLetter: Doc<"coverLetters"> | null = await ctx.db.get(coverLetterId);
+    const coverLetter = await ctx.db.get(coverLetterId) as RetryableCoverLetterDoc | null;
     if (!coverLetter) {
       throw new ConvexError("Failed to retrieve generated cover letter");
     }
 
     return {
-      coverLetter,
+      coverLetter: normalizeCoverLetter(coverLetter),
       tokensUsed: 0, // Will be updated when AI generation completes
       remainingCredits: newBalance,
     };
@@ -146,19 +208,7 @@ export const generateFromForm = mutation({
     })),
   },
   returns: v.object({
-    coverLetter: v.object({
-      _id: v.id("coverLetters"),
-      userProfileId: v.id("userProfiles"),
-      extractedJobId: v.optional(v.id("extractedJobs")),
-      resumeId: v.id("resumes"),
-      jobTitle: v.optional(v.string()),
-      company: v.optional(v.string()),
-      content: v.string(),
-      creditsUsed: v.number(),
-      preferences: v.optional(v.any()),
-      createdAt: v.number(),
-      _creationTime: v.number(),
-    }),
+    coverLetter: coverLetterReturnValidator,
     tokensUsed: v.number(),
     remainingCredits: v.number(),
   }),
@@ -212,16 +262,101 @@ export const updateContent = mutation({
     coverLetterId: v.id("coverLetters"),
     content: v.string(),
     tokensUsed: v.optional(v.number()),
+    generationStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("completed"), v.literal("failed"))
+    ),
+    generationError: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.object({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.coverLetterId, {
+    const patch: Partial<Doc<"coverLetters">> = {
       content: args.content,
+      updatedAt: Date.now(),
+    };
+
+    if (args.tokensUsed !== undefined) {
+      patch.tokensUsed = args.tokensUsed;
+    }
+    if (args.generationStatus !== undefined) {
+      patch.generationStatus = args.generationStatus;
+    }
+    if (args.generationError !== undefined) {
+      patch.generationError = args.generationError;
+    }
+
+    await ctx.db.patch(args.coverLetterId, {
+      ...patch,
     });
     
     return { success: true };
+  },
+});
+
+export const retryGeneration = mutation({
+  args: {
+    coverLetterId: v.id("coverLetters"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    coverLetter: coverLetterReturnValidator,
+  }),
+  handler: async (ctx, args) => {
+    const userProfile = await getCurrentUserProfile(ctx);
+    const coverLetter = await ctx.db.get(args.coverLetterId) as RetryableCoverLetterDoc | null;
+
+    if (!coverLetter || coverLetter.userProfileId !== userProfile._id) {
+      throw new ConvexError("Cover letter not found or access denied");
+    }
+
+    const normalizedCoverLetter: NormalizedCoverLetter = normalizeCoverLetter(coverLetter);
+
+    if (normalizedCoverLetter.generationStatus === "pending") {
+      throw new ConvexError("Cover letter generation is already in progress");
+    }
+
+    const resume = await ctx.db.get(normalizedCoverLetter.resumeId);
+    if (!resume || resume.userProfileId !== userProfile._id) {
+      throw new ConvexError("Resume not found or access denied");
+    }
+
+    const nextAttempt = normalizedCoverLetter.generationAttempts + 1;
+    const now = Date.now();
+
+    await ctx.db.patch(args.coverLetterId, {
+      content: COVER_LETTER_GENERATION_PLACEHOLDER,
+      generationStatus: "pending",
+      generationError: null,
+      generationAttempts: nextAttempt,
+      lastGenerationAttemptAt: now,
+      updatedAt: now,
+    });
+
+    console.info("[convex.coverLetters.retryGeneration] queued", {
+      coverLetterId: args.coverLetterId,
+      userProfileId: userProfile._id,
+      generationAttempts: nextAttempt,
+    });
+
+    await ctx.scheduler.runAfter(0, api.ai.generateCoverLetter, {
+      coverLetterId: args.coverLetterId,
+      resumeText: resume.extractedText || "",
+      jobDescription: normalizedCoverLetter.jobDescription || "",
+      company: normalizedCoverLetter.company || "",
+      jobTitle: normalizedCoverLetter.jobTitle || "",
+      preferences: normalizedCoverLetter.preferences,
+    });
+
+    const updatedCoverLetter = await ctx.db.get(args.coverLetterId) as RetryableCoverLetterDoc | null;
+    if (!updatedCoverLetter) {
+      throw new ConvexError("Failed to queue retry");
+    }
+
+    return {
+      success: true,
+      coverLetter: normalizeCoverLetter(updatedCoverLetter),
+    };
   },
 });
 
@@ -238,10 +373,21 @@ export const getCoverLetters = query({
       resumeId: v.id("resumes"),
       jobTitle: v.optional(v.string()),
       company: v.optional(v.string()),
+      jobDescription: v.optional(v.string()),
       content: v.string(),
+      generationStatus: v.union(
+        v.literal("pending"),
+        v.literal("completed"),
+        v.literal("failed")
+      ),
+      generationError: v.optional(v.union(v.string(), v.null())),
+      generationAttempts: v.number(),
+      lastGenerationAttemptAt: v.optional(v.number()),
+      tokensUsed: v.optional(v.number()),
       creditsUsed: v.number(),
       preferences: v.optional(v.any()),
       createdAt: v.optional(v.number()),
+      updatedAt: v.optional(v.number()),
       _creationTime: v.number(),
     })),
     hasMore: v.boolean(),
@@ -257,7 +403,8 @@ export const getCoverLetters = query({
       .take(limit + 1);
 
     const hasMore = coverLetters.length > limit;
-    const results = hasMore ? coverLetters.slice(0, limit) : coverLetters;
+    const results = (hasMore ? coverLetters.slice(0, limit) : coverLetters)
+      .map((coverLetter) => normalizeCoverLetter(coverLetter as RetryableCoverLetterDoc));
 
     return {
       coverLetters: results,
@@ -272,30 +419,18 @@ export const getCoverLetter = query({
     coverLetterId: v.id("coverLetters"),
   },
   returns: v.union(
-    v.object({
-      _id: v.id("coverLetters"),
-      userProfileId: v.id("userProfiles"),
-      extractedJobId: v.optional(v.id("extractedJobs")),
-      resumeId: v.id("resumes"),
-      jobTitle: v.optional(v.string()),
-      company: v.optional(v.string()),
-      content: v.string(),
-      creditsUsed: v.number(),
-      preferences: v.optional(v.any()),
-      createdAt: v.optional(v.number()),
-      _creationTime: v.number(),
-    }),
+    coverLetterReturnValidator,
     v.null()
   ),
   handler: async (ctx, args) => {
     const userProfile = await getCurrentUserProfile(ctx);
     
-    const coverLetter = await ctx.db.get(args.coverLetterId);
+    const coverLetter = await ctx.db.get(args.coverLetterId) as RetryableCoverLetterDoc | null;
     if (!coverLetter || coverLetter.userProfileId !== userProfile._id) {
       return null;
     }
     
-    return coverLetter;
+    return normalizeCoverLetter(coverLetter);
   },
 });
 

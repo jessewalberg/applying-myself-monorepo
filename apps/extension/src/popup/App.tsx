@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useEffect, lazy, Suspense, useState } from "react";
-import { FileText, History, Settings, LogOut, Coins, Loader2 } from "lucide-react";
-import { SignIn } from "@clerk/chrome-extension";
-import CONFIG from "@/config";
+import { FileText, History, Settings, LogOut, Coins, Loader2, Shield } from "lucide-react";
 import { useSession } from "@/features/auth/useSession";
+import InlineAuthPanel from "@/features/auth/InlineAuthPanel";
 import { trackExtensionEvent } from "@/core/analytics/track";
 import ApplyingMyselfLogo from "./components/ApplyingMyselfLogo";
 import EnvironmentBanner from "../components/EnvironmentBanner";
-import type { User as UserType } from "@/types";
 
 const GenerateTab = lazy(() => import("./components/GenerateTab"));
 const HistoryTab = lazy(() => import("./components/HistoryTab"));
@@ -24,8 +22,17 @@ const TABS = [
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("generate");
-  const { user, setUser, isAuthenticated, loading, initialize, logout } =
-    useSession();
+  const {
+    user,
+    setUser,
+    isAuthenticated,
+    loading,
+    debugStage,
+    initialize,
+    logout,
+    isClerkLoaded,
+    isClerkSignedIn,
+  } = useSession();
 
   const handleTabChange = (tab: TabType): void => {
     void trackExtensionEvent("extension_tab_changed", {
@@ -41,6 +48,11 @@ const App: React.FC = () => {
     void trackExtensionEvent("extension_popup_opened");
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!isClerkLoaded || !isClerkSignedIn || isAuthenticated || loading) return;
+    void initialize();
+  }, [initialize, isAuthenticated, isClerkLoaded, isClerkSignedIn, loading]);
 
   const handleLogout = async (): Promise<void> => {
     void trackExtensionEvent("extension_logout", {
@@ -64,7 +76,7 @@ const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    return <AuthScreen debugStage={debugStage} />;
   }
 
   return (
@@ -81,6 +93,12 @@ const App: React.FC = () => {
           <span className="text-primary text-lg leading-none">.</span>
         </div>
         <div className="flex items-center gap-2">
+          {user?.isAdmin && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+              <Shield className="w-3 h-3 text-amber-400" />
+              <span className="text-[10px] font-semibold text-amber-400">Admin</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
             <Coins className="w-3 h-3 text-primary" />
             <span className="text-xs font-semibold text-primary">
@@ -144,55 +162,8 @@ const TabLoadingFallback: React.FC = () => (
   </div>
 );
 
-const AuthScreen: React.FC = () => {
-  if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-background px-6 text-center">
-        <ApplyingMyselfLogo size={40} />
-        <h1 className="font-display italic text-lg text-foreground mt-4">
-          applying myself<span className="text-primary">.</span>
-        </h1>
-        <p className="text-sm text-destructive mt-3">
-          Missing Clerk publishable key.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full bg-background px-6">
-      {/* Ambient glow */}
-      <div className="pointer-events-none absolute top-0 left-1/4 w-48 h-48 bg-primary/8 rounded-full blur-3xl" />
-
-      <div className="relative z-10 text-center mb-6">
-        <ApplyingMyselfLogo size={40} className="mx-auto" />
-        <h1 className="font-display italic text-xl text-foreground mt-3">
-          applying myself<span className="text-primary">.</span>
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Sign in to generate cover letters
-        </p>
-      </div>
-
-      <div className="relative z-10 w-full max-w-[300px] rounded-xl border border-border bg-card p-4">
-        <SignIn
-          fallbackRedirectUrl="/"
-          appearance={{
-            elements: {
-              card: "shadow-none border-0 w-full bg-transparent",
-              headerTitle: "text-foreground",
-              headerSubtitle: "text-muted-foreground",
-              socialButtonsBlockButton:
-                "bg-secondary border-border text-foreground hover:bg-secondary/80",
-              formFieldInput:
-                "bg-background border-border text-foreground",
-              footerActionLink: "text-primary hover:text-primary/80",
-            },
-          }}
-        />
-      </div>
-    </div>
-  );
+const AuthScreen: React.FC<{ debugStage: string }> = ({ debugStage }) => {
+  return <InlineAuthPanel variant="popup" debugStage={debugStage} />;
 };
 
 export default App;

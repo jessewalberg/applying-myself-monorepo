@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ConvexProvider } from "@/components/ConvexProvider";
+import { PostHogProvider } from "@/components/PostHogProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -123,9 +124,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakarta.variable} ${fraunces.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
-        <ConvexProvider>
-          {children}
-        </ConvexProvider>
+        <PostHogProvider>
+          <ConvexProvider>
+            {children}
+          </ConvexProvider>
+        </PostHogProvider>
         <Analytics />
       </body>
     </html>

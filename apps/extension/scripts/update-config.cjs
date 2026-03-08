@@ -33,10 +33,10 @@ function main() {
   const environment = process.argv[3] || "development";
 
   if (!newUrl) {
-    console.log("Usage: bun scripts/update-config.js <convex-url> [environment]");
-    console.log("Example: bun scripts/update-config.js https://my-deployment.convex.cloud development");
-    console.log("Example: bun scripts/update-config.js https://my-staging.convex.cloud staging");
-    console.log("Example: bun scripts/update-config.js https://my-prod.convex.site production");
+    console.log("Usage: bun scripts/update-config.cjs <convex-url> [environment]");
+    console.log("Example: bun scripts/update-config.cjs https://my-deployment.convex.cloud development");
+    console.log("Example: bun scripts/update-config.cjs https://my-staging.convex.cloud staging");
+    console.log("Example: bun scripts/update-config.cjs https://my-prod.convex.site production");
     process.exit(1);
   }
 

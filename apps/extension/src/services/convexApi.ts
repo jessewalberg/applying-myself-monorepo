@@ -48,6 +48,7 @@ export class ConvexApiService {
   getExtractedJobs = jobsClient.getExtractedJobs;
 
   generateCoverLetterFromContent = coverLetterClient.generateCoverLetterFromContent;
+  retryCoverLetterGeneration = coverLetterClient.retryCoverLetterGeneration;
   getCoverLetters = coverLetterClient.getCoverLetters;
 
   createBillingSession = billingClient.createBillingSession;

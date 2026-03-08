@@ -123,6 +123,15 @@ export default defineSchema({
     jobTitle: v.optional(v.string()),
     company: v.optional(v.string()),
     content: v.string(),
+    generationStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("completed"),
+      v.literal("failed")
+    )),
+    generationError: v.optional(v.union(v.string(), v.null())),
+    generationAttempts: v.optional(v.number()),
+    lastGenerationAttemptAt: v.optional(v.number()),
+    tokensUsed: v.optional(v.number()),
     creditsUsed: v.number(),
     preferences: v.optional(v.object({
       tone: v.optional(v.union(v.literal("professional"), v.literal("casual"), v.literal("enthusiastic"))),
@@ -130,6 +139,7 @@ export default defineSchema({
       length: v.optional(v.union(v.literal("short"), v.literal("medium"), v.literal("long"))),
     })),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   })
     .index("by_user", ["userProfileId"])
     .index("by_user_date", ["userProfileId", "createdAt"]),

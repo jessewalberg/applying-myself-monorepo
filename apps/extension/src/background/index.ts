@@ -1,6 +1,8 @@
 import type { ChromeTab } from '@/types/chrome';
 import type { PopupToBackgroundMessage, PopupToContentMessage } from '@/core/contracts/messages';
 import { isAnalyticsEventMessage } from '@/core/contracts/messages';
+import { createClerkClient } from '@clerk/chrome-extension/background';
+import { capturePosthogEvent } from '@/core/analytics/posthog';
 import CONFIG from '@/config';
 
 type JobDetectorWindow = Window & {
@@ -11,33 +13,79 @@ type JobDetectorWindow = Window & {
 
 class BackgroundService {
   constructor() {
-    this.init();
-    this.setupAutoReload();
+    try {
+      this.init();
+    } catch (error) {
+      console.error('Background init failed:', error);
+    }
+
+    try {
+      this.setupAutoReload();
+    } catch (error) {
+      console.error('Background auto-reload setup failed:', error);
+    }
   }
 
+  private clerkInitPromise: Promise<void> | null = null;
+
   private init(): void {
+    void this.ensureClerkBackground();
     this.setupMessageListeners();
     this.setupContextMenus();
     this.setupTabUpdateListener();
   }
 
+  private ensureClerkBackground(): Promise<void> {
+    if (this.clerkInitPromise) {
+      return this.clerkInitPromise;
+    }
+
+    this.clerkInitPromise = (async () => {
+      if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
+        console.warn('Clerk background init skipped: missing publishable key');
+        return;
+      }
+
+      try {
+        await createClerkClient(
+          CONFIG.CLERK.SYNC_HOST
+            ? {
+                publishableKey: CONFIG.CLERK.PUBLISHABLE_KEY,
+                syncHost: CONFIG.CLERK.SYNC_HOST,
+                __experimental_syncHostListener: true,
+              }
+            : {
+                publishableKey: CONFIG.CLERK.PUBLISHABLE_KEY,
+              }
+        );
+      } catch (error) {
+        console.error('Clerk background init failed:', error);
+      }
+    })();
+
+    return this.clerkInitPromise;
+  }
+
   private setupAutoReload(): void {
+    if (!chrome?.runtime?.getManifest || !chrome?.runtime?.onMessage?.addListener) return;
+
     // Only enable in development
     const manifest = chrome.runtime.getManifest();
-    if (manifest.name.includes('Development')) {
-      console.log('🔄 Auto-reload enabled for development');
+    if (!manifest?.name?.includes('Development')) return;
 
-      chrome.runtime.onMessage.addListener((message: PopupToBackgroundMessage, _sender, _sendResponse) => {
-        if (message.type === 'RELOAD_EXTENSION') {
-          console.log('🔄 Reloading extension...');
-          chrome.runtime.reload();
-          return true;
-        }
-      });
-    }
+    console.log('🔄 Auto-reload enabled for development');
+    chrome.runtime.onMessage.addListener((message: PopupToBackgroundMessage, _sender, _sendResponse) => {
+      if (message.type === 'RELOAD_EXTENSION') {
+        console.log('🔄 Reloading extension...');
+        chrome.runtime.reload();
+        return true;
+      }
+    });
   }
 
   private setupMessageListeners(): void {
+    if (!chrome?.runtime?.onMessage?.addListener) return;
+
     chrome.runtime.onMessage.addListener((message: PopupToBackgroundMessage, _sender, sendResponse) => {
       switch (message.type) {
         case 'OPEN_POPUP':
@@ -64,10 +112,25 @@ class BackgroundService {
   }
 
   private setupContextMenus(): void {
-    chrome.contextMenus.create({
-      id: 'applying-myself-extract',
-      title: 'Extract content with Applying Myself',
-      contexts: ['page']
+    if (!chrome?.contextMenus?.remove || !chrome?.contextMenus?.create || !chrome?.contextMenus?.onClicked?.addListener) {
+      return;
+    }
+
+    chrome.contextMenus.remove('applying-myself-extract', () => {
+      void chrome.runtime.lastError;
+      chrome.contextMenus.create(
+        {
+          id: 'applying-myself-extract',
+          title: 'Extract content with Applying Myself',
+          contexts: ['page']
+        },
+        () => {
+          const createError = chrome.runtime.lastError;
+          if (createError) {
+            console.error('Failed to create context menu:', createError.message);
+          }
+        }
+      );
     });
 
     chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -82,6 +145,8 @@ class BackgroundService {
   }
 
   private setupTabUpdateListener(): void {
+    if (!chrome?.tabs?.onUpdated?.addListener) return;
+
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('https://')) {
         // Inject content script on all HTTPS pages
@@ -138,18 +203,15 @@ class BackgroundService {
   }
 
   private trackEvent(eventName: string, properties: Record<string, unknown> = {}): void {
-    fetch(CONFIG.ANALYTICS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: eventName,
-        properties: {
-          ...properties,
-          timestamp: new Date().toISOString(),
-          userAgent: navigator.userAgent
-        }
-      })
-    }).catch(console.error);
+    void capturePosthogEvent(eventName, {
+      ...properties,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+    }).catch((error) => {
+      if (CONFIG.ENVIRONMENT === 'development') {
+        console.warn('Failed to capture PostHog event:', error);
+      }
+    });
   }
 }
 
