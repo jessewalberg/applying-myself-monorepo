@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
 } from "@applyingmyself/ui/components/dropdown-menu";
 import { useClerk } from "@clerk/nextjs";
+import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 export function SiteNav() {
   const { isSignedIn } = useAuth();
@@ -37,7 +38,8 @@ export function SiteNav() {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-1">
+        <Link href="/" className="flex items-center gap-2">
+          <ApplyingMyselfLogo size="md" className="shrink-0" />
           <span className="font-display italic text-xl text-foreground">
             applying myself
           </span>

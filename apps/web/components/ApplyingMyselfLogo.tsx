@@ -7,19 +7,20 @@ interface ApplyingMyselfLogoProps {
 
 export function ApplyingMyselfLogo({ size = "md", className = "" }: ApplyingMyselfLogoProps) {
     const sizeClasses = {
-        sm: "w-6 h-6",
-        md: "w-8 h-8",
-        lg: "w-12 h-12",
-        xl: "w-16 h-16"
+        sm: "w-7 h-7",
+        md: "w-10 h-10",
+        lg: "w-14 h-14",
+        xl: "w-[4.5rem] h-[4.5rem]"
     };
+    const pixelSize = size === "sm" ? 28 : size === "md" ? 40 : size === "lg" ? 56 : 72;
 
     return (
         <Image
-            src="/icons/logo.svg"
-            alt="Applying Myself Logo"
-            width={size === "sm" ? 24 : size === "md" ? 32 : size === "lg" ? 48 : 64}
-            height={size === "sm" ? 24 : size === "md" ? 32 : size === "lg" ? 48 : 64}
-            className={`${sizeClasses[size]} ${className}`}
+            src="/logo-mark.png"
+            alt="Applying Myself mascot logo"
+            width={pixelSize}
+            height={pixelSize}
+            className={`${sizeClasses[size]} rounded-[22%] shadow-sm ring-1 ring-black/10 ${className}`}
         />
     );
 }
