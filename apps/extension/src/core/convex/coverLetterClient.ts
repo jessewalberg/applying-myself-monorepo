@@ -11,6 +11,37 @@ import {
   safeISOString,
 } from "./client";
 
+const mapCoverLetter = (coverLetter: ConvexCoverLetterDoc): CoverLetter => ({
+  id: coverLetter._id,
+  userId: coverLetter.userProfileId,
+  extractedJobId: coverLetter.extractedJobId || null,
+  resumeId: coverLetter.resumeId,
+  jobTitle: coverLetter.jobTitle || null,
+  company: coverLetter.company || null,
+  jobDescription: coverLetter.jobDescription || null,
+  content: coverLetter.content,
+  generationStatus: coverLetter.generationStatus,
+  generationError: coverLetter.generationError || null,
+  generationAttempts: coverLetter.generationAttempts,
+  lastGenerationAttemptAt: coverLetter.lastGenerationAttemptAt
+    ? safeISOString(coverLetter.lastGenerationAttemptAt)
+    : null,
+  tokensUsed: coverLetter.tokensUsed ?? null,
+  creditsUsed: coverLetter.creditsUsed,
+  preferences: coverLetter.preferences ? JSON.stringify(coverLetter.preferences) : null,
+  createdAt: safeISOString(coverLetter._creationTime),
+});
+
+export class CoverLetterGenerationError extends Error {
+  coverLetterId: string | null;
+
+  constructor(message: string, coverLetterId: string | null = null) {
+    super(message);
+    this.name = "CoverLetterGenerationError";
+    this.coverLetterId = coverLetterId;
+  }
+}
+
 const pollForCoverLetterCompletion = async (
   coverLetterId: string,
   onProgress?: (content: string) => void,
@@ -26,8 +57,12 @@ const pollForCoverLetterCompletion = async (
         throw new Error("Cover letter not found");
       }
 
+      if (coverLetter.generationStatus === "failed") {
+        throw new Error(coverLetter.generationError || "Cover letter generation failed");
+      }
+
       const isPlaceholder = coverLetter.content.includes("Generating your personalized cover letter");
-      if (!isPlaceholder) {
+      if (coverLetter.generationStatus === "completed" && !isPlaceholder) {
         if (CONFIG.ENVIRONMENT === "development") {
           console.log("✅ Cover letter generation completed after", attempt + 1, "attempts");
         }
@@ -75,23 +110,47 @@ export const generateCoverLetterFromContent = async (
 
   onProgress?.(result.coverLetter.content);
 
-  const finalCoverLetter = await pollForCoverLetterCompletion(result.coverLetter._id, onProgress);
+  let finalCoverLetter: ConvexCoverLetterDoc;
+  try {
+    finalCoverLetter = await pollForCoverLetterCompletion(result.coverLetter._id, onProgress);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Cover letter generation failed";
+    throw new CoverLetterGenerationError(message, result.coverLetter._id);
+  }
 
   return {
-    coverLetter: {
-      id: finalCoverLetter._id,
-      userId: finalCoverLetter.userProfileId,
-      extractedJobId: finalCoverLetter.extractedJobId || null,
-      resumeId: finalCoverLetter.resumeId,
-      jobTitle: finalCoverLetter.jobTitle || null,
-      company: finalCoverLetter.company || null,
-      content: finalCoverLetter.content,
-      creditsUsed: finalCoverLetter.creditsUsed,
-      preferences: finalCoverLetter.preferences ? JSON.stringify(finalCoverLetter.preferences) : null,
-      createdAt: safeISOString(finalCoverLetter._creationTime),
-    },
+    coverLetter: mapCoverLetter(finalCoverLetter),
     tokensUsed: result.tokensUsed || 0,
     remainingCredits: result.remainingCredits || 0,
+  };
+};
+
+export const retryCoverLetterGeneration = async (
+  coverLetterId: string,
+  onProgress?: (content: string) => void
+): Promise<GenerateCoverLetterResponse> => {
+  if (!isConvexAuthenticated()) {
+    throw new Error("Authentication required");
+  }
+
+  const result = await convexClient.mutation(api.coverLetters.retryGeneration, {
+    coverLetterId: coverLetterId as Id<"coverLetters">,
+  });
+
+  let finalCoverLetter: ConvexCoverLetterDoc;
+  try {
+    finalCoverLetter = await pollForCoverLetterCompletion(result.coverLetter._id, onProgress);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Cover letter generation failed";
+    throw new CoverLetterGenerationError(message, result.coverLetter._id);
+  }
+
+  return {
+    coverLetter: mapCoverLetter(finalCoverLetter),
+    tokensUsed: finalCoverLetter.tokensUsed || 0,
+    remainingCredits: 0,
   };
 };
 
@@ -104,16 +163,5 @@ export const getCoverLetters = async (): Promise<CoverLetter[]> => {
     limit: 50,
   });
 
-  return result.coverLetters.map((coverLetter: ConvexCoverLetterDoc) => ({
-    id: coverLetter._id,
-    userId: coverLetter.userProfileId,
-    extractedJobId: coverLetter.extractedJobId || null,
-    resumeId: coverLetter.resumeId,
-    jobTitle: coverLetter.jobTitle || null,
-    company: coverLetter.company || null,
-    content: coverLetter.content,
-    creditsUsed: coverLetter.creditsUsed,
-    preferences: coverLetter.preferences ? JSON.stringify(coverLetter.preferences) : null,
-    createdAt: safeISOString(coverLetter._creationTime),
-  }));
+  return result.coverLetters.map((coverLetter: ConvexCoverLetterDoc) => mapCoverLetter(coverLetter));
 };

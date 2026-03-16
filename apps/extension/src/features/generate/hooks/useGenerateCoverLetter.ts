@@ -35,7 +35,15 @@ export const useGenerateCoverLetter = () => {
     []
   );
 
+  const retry = useCallback(
+    async (coverLetterId: string, onProgress?: (content: string) => void) => {
+      return await convexApi.retryCoverLetterGeneration(coverLetterId, onProgress);
+    },
+    []
+  );
+
   return {
     generate,
+    retry,
   };
 };

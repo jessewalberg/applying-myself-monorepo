@@ -55,8 +55,65 @@
 .cl-component {
   --clerk-background: transparent !important;
 }
+.cl-rootBox,
+.cl-cardBox,
+.cl-card {
+  width: 100% !important;
+}
 .cl-card {
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
+}
+.cl-main {
+  gap: 0.85rem !important;
+}
+.cl-socialButtons {
+  gap: 0.7rem !important;
+}
+.cl-socialButtonsBlockButton {
+  min-height: 2.75rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: rgba(31, 24, 21, 0.92) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+.cl-socialButtonsBlockButtonText {
+  color: hsl(var(--foreground)) !important;
+}
+.cl-dividerText {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-formFieldLabel {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.9 !important;
+}
+.cl-formFieldInput {
+  min-height: 2.8rem !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: rgba(44, 35, 31, 0.95) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+.cl-formFieldInput::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-formFieldInputShowPasswordButton {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-formButtonPrimary {
+  min-height: 2.8rem !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  box-shadow: 0 10px 24px -16px hsl(var(--primary)) !important;
+}
+.cl-footerActionText,
+.cl-footerActionLink,
+.cl-identityPreviewText,
+.cl-formResendCodeLink {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.cl-footerActionLink,
+.cl-formResendCodeLink {
+  color: hsl(var(--primary)) !important;
 }

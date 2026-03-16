@@ -2,5 +2,9 @@ import { defineBackground } from "wxt/utils/define-background";
 import { startBackgroundService } from "../src/background/index";
 
 export default defineBackground(() => {
-  startBackgroundService();
+  try {
+    startBackgroundService();
+  } catch (error) {
+    console.error("Background entrypoint failed:", error);
+  }
 });

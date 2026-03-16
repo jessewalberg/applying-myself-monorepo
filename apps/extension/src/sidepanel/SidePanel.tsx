@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import {
-  FileText,
   History,
   Settings,
   LogOut,
@@ -11,13 +10,12 @@ import {
   Sparkles,
   ExternalLink,
 } from "lucide-react";
-import { SignIn } from "@clerk/chrome-extension";
 import CONFIG from "@/config";
 import { useSession } from "@/features/auth/useSession";
+import InlineAuthPanel from "@/features/auth/InlineAuthPanel";
 import { trackExtensionEvent } from "@/core/analytics/track";
 import ApplyingMyselfLogo from "../popup/components/ApplyingMyselfLogo";
 import EnvironmentBanner from "../components/EnvironmentBanner";
-import type { User as UserType } from "@/types";
 
 const GenerateTab = lazy(() => import("../popup/components/GenerateTab"));
 const HistoryTab = lazy(() => import("../popup/components/HistoryTab"));
@@ -33,13 +31,27 @@ const TABS = [
 
 const SidePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("generate");
-  const { user, setUser, isAuthenticated, loading, initialize, logout } =
-    useSession();
+  const {
+    user,
+    setUser,
+    isAuthenticated,
+    loading,
+    debugStage,
+    initialize,
+    logout,
+    isClerkLoaded,
+    isClerkSignedIn,
+  } = useSession();
 
   useEffect(() => {
     void trackExtensionEvent("extension_sidepanel_opened");
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!isClerkLoaded || !isClerkSignedIn || isAuthenticated || loading) return;
+    void initialize();
+  }, [initialize, isAuthenticated, isClerkLoaded, isClerkSignedIn, loading]);
 
   const handleLogout = async () => {
     void trackExtensionEvent("extension_logout");
@@ -56,7 +68,7 @@ const SidePanel: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    return <AuthScreen debugStage={debugStage} />;
   }
 
   return (
@@ -145,48 +157,8 @@ const SidePanel: React.FC = () => {
   );
 };
 
-const AuthScreen: React.FC = () => {
-  if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background px-8 text-center">
-        <p className="text-sm text-destructive">Missing Clerk key.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center h-screen bg-background px-8">
-      <div className="pointer-events-none absolute top-0 left-1/3 w-64 h-64 bg-primary/8 rounded-full blur-3xl" />
-
-      <div className="relative z-10 text-center mb-8">
-        <ApplyingMyselfLogo size={48} className="mx-auto" />
-        <h1 className="font-display italic text-2xl text-foreground mt-4">
-          applying myself<span className="text-primary">.</span>
-        </h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          AI-powered cover letters, right in your browser
-        </p>
-      </div>
-
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6">
-        <SignIn
-          fallbackRedirectUrl="/"
-          appearance={{
-            elements: {
-              card: "shadow-none border-0 w-full bg-transparent",
-              headerTitle: "text-foreground",
-              headerSubtitle: "text-muted-foreground",
-              socialButtonsBlockButton:
-                "bg-secondary border-border text-foreground hover:bg-secondary/80",
-              formFieldInput:
-                "bg-background border-border text-foreground",
-              footerActionLink: "text-primary hover:text-primary/80",
-            },
-          }}
-        />
-      </div>
-    </div>
-  );
+const AuthScreen: React.FC<{ debugStage: string }> = ({ debugStage }) => {
+  return <InlineAuthPanel variant="sidepanel" debugStage={debugStage} />;
 };
 
 export default SidePanel;

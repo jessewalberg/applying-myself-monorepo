@@ -25,6 +25,7 @@ import { useCopyToClipboard } from "@applyingmyself/ui/hooks/useCopyToClipboard"
 import { SiteNav } from "@/components/marketing/SiteNav";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { homepageDraft } from "@/lib/homepageDraft";
+import { captureWebEvent } from "@/lib/analytics";
 
 type GenerateState = "idle" | "generating" | "done" | "error";
 
@@ -44,6 +45,7 @@ export function GenerateClient() {
   // Convex hooks — only active when signed in
   const ensureUserProfile = useMutation(api.userHelpers.ensureUserProfile);
   const generateCoverLetter = useMutation(api.coverLetters.generateFromForm);
+  const retryCoverLetterGeneration = useMutation(api.coverLetters.retryGeneration);
   const [profileEnsured, setProfileEnsured] = useState(false);
 
   useEffect(() => {
@@ -51,6 +53,12 @@ export function GenerateClient() {
       ensureUserProfile({}).then(() => setProfileEnsured(true));
     }
   }, [isSignedIn, ensureUserProfile]);
+
+  useEffect(() => {
+    captureWebEvent("generate_viewed", {
+      signed_in: isSignedIn,
+    });
+  }, [isSignedIn]);
 
   const resumesQuery = useQuery(
     api.resumes.getResumes,
@@ -78,6 +86,10 @@ export function GenerateClient() {
   const [generatedContent, setGeneratedContent] = useState("");
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const logGenerate = (event: string, details: Record<string, unknown> = {}) => {
+    console.info(`[web.generate] ${event}`, details);
+  };
 
   // Pending resume file carried from homepage (for users who aren't signed in yet)
   const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
@@ -127,8 +139,15 @@ export function GenerateClient() {
 
         setSelectedResumeId(resumeId);
         setResumeUploadDone(true);
+        captureWebEvent("resume_auto_upload_succeeded", {
+          file_type: file.type || "unknown",
+          file_size: file.size,
+        });
       } catch (err) {
         console.error("Auto-upload failed:", err);
+        captureWebEvent("resume_auto_upload_failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
         // Don't block the user — they can still pick a resume manually
       } finally {
         setResumeUploading(false);
@@ -151,6 +170,7 @@ export function GenerateClient() {
 
   const handleGenerate = async () => {
     if (!isSignedIn) {
+      captureWebEvent("generate_redirected_to_login");
       router.push("/login?redirect=/generate");
       return;
     }
@@ -159,6 +179,21 @@ export function GenerateClient() {
       setErrorMsg("Please fill in job title, company name, and select a resume.");
       return;
     }
+
+    captureWebEvent("generate_started", {
+      tone,
+      length,
+      has_job_description: Boolean(jobDescription.trim()),
+      track_application: trackApplication,
+    });
+    logGenerate("started", {
+      tone,
+      length,
+      company: companyName.trim(),
+      jobTitle: jobTitle.trim(),
+      hasJobDescription: Boolean(jobDescription.trim()),
+      trackApplication,
+    });
 
     setState("generating");
     setErrorMsg("");
@@ -178,11 +213,24 @@ export function GenerateClient() {
       });
 
       setGeneratedId(result.coverLetter._id);
-      // The cover letter content is generated async by an AI action.
-      // We'll poll for it via the cover letter query below.
-      setState("done");
+      setState("generating");
+      logGenerate("queued", {
+        coverLetterId: result.coverLetter._id,
+        generationStatus: result.coverLetter.generationStatus,
+      });
+      captureWebEvent("generate_requested", {
+        tone,
+        length,
+        track_application: trackApplication,
+      });
     } catch (error: unknown) {
       setState("error");
+      logGenerate("request_failed", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      captureWebEvent("generate_failed", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
       setErrorMsg(
         error instanceof Error
           ? error.message
@@ -198,14 +246,84 @@ export function GenerateClient() {
   );
 
   useEffect(() => {
-    if (coverLetterQuery && coverLetterQuery.content) {
-      const isPlaceholder =
-        coverLetterQuery.content === "Generating your personalized cover letter...";
-      if (!isPlaceholder) {
-        setGeneratedContent(coverLetterQuery.content);
-      }
+    if (!coverLetterQuery) {
+      return;
     }
-  }, [coverLetterQuery]);
+
+    logGenerate("status_update", {
+      coverLetterId: coverLetterQuery._id,
+      generationStatus: coverLetterQuery.generationStatus,
+      generationAttempts: coverLetterQuery.generationAttempts,
+    });
+
+    if (coverLetterQuery.generationStatus === "failed") {
+      setState("error");
+      setGeneratedContent("");
+      setErrorMsg(
+        coverLetterQuery.generationError ||
+          "Cover letter generation failed. Retry to try again."
+      );
+      captureWebEvent("generate_failed", {
+        cover_letter_id: coverLetterQuery._id,
+        error:
+          coverLetterQuery.generationError || "cover_letter_generation_failed",
+      });
+      return;
+    }
+
+    if (coverLetterQuery.generationStatus === "completed" && coverLetterQuery.content) {
+      setGeneratedContent(coverLetterQuery.content);
+      setState("done");
+      setErrorMsg("");
+      captureWebEvent("generate_completed", {
+        cover_letter_id: coverLetterQuery._id,
+        company: companyName.trim() || undefined,
+      });
+      return;
+    }
+
+    setState("generating");
+  }, [companyName, coverLetterQuery]);
+
+  const handleRetry = async () => {
+    if (!generatedId) {
+      await handleGenerate();
+      return;
+    }
+
+    setState("generating");
+    setErrorMsg("");
+    setGeneratedContent("");
+    logGenerate("retry_started", { coverLetterId: generatedId });
+    captureWebEvent("generate_retry_started", {
+      cover_letter_id: generatedId,
+    });
+
+    try {
+      const result = await retryCoverLetterGeneration({
+        coverLetterId: generatedId as Id<"coverLetters">,
+      });
+      setGeneratedId(result.coverLetter._id);
+      setState("generating");
+      logGenerate("retry_queued", {
+        coverLetterId: result.coverLetter._id,
+        generationAttempts: result.coverLetter.generationAttempts,
+      });
+    } catch (error: unknown) {
+      setState("error");
+      const message =
+        error instanceof Error ? error.message : "Failed to retry generation.";
+      setErrorMsg(message);
+      logGenerate("retry_failed", {
+        coverLetterId: generatedId,
+        error: message,
+      });
+      captureWebEvent("generate_retry_failed", {
+        cover_letter_id: generatedId,
+        error: message,
+      });
+    }
+  };
 
   const hasCredits = (userProfile?.credits || 0) >= 2;
 
@@ -411,7 +529,22 @@ export function GenerateClient() {
 
               {/* Generate button */}
               {errorMsg && (
-                <p className="text-sm text-destructive">{errorMsg}</p>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-sm text-destructive">{errorMsg}</p>
+                  {generatedId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetry}
+                      disabled={state === "generating"}
+                      className="mt-3 gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Retry generation
+                    </Button>
+                  ) : null}
+                </div>
               )}
 
               {isSignedIn && !hasCredits && (

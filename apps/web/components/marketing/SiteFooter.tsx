@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Separator } from "@applyingmyself/ui/components/separator";
+import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 export function SiteFooter() {
   return (
@@ -7,7 +8,8 @@ export function SiteFooter() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1">
+          <Link href="/" className="flex items-center gap-2">
+            <ApplyingMyselfLogo size="sm" className="shrink-0" />
             <span className="font-display italic text-lg text-foreground">
               applying myself
             </span>

@@ -13,21 +13,36 @@ if (!root) {
 if (!CONFIG.CLERK.PUBLISHABLE_KEY) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <div className="auth-container">
-        <div className="auth-header">
-          <h1>Applying Myself</h1>
-          <p>Missing Clerk publishable key. Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.</p>
+      <div className="flex h-[520px] w-[380px] flex-col items-center justify-center bg-background px-6 text-center text-foreground">
+        <h1 className="font-display text-xl italic">
+          applying myself<span className="text-primary">.</span>
+        </h1>
+        <p className="mt-3 text-sm text-destructive">
+          Missing Clerk publishable key.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in apps/extension/.env.local
+        </p>
         </div>
-      </div>
     </React.StrictMode>
   );
 } else {
+  const popupUrl = chrome.runtime.getURL("popup.html?mode=sign-in");
+
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <ClerkProvider
         publishableKey={CONFIG.CLERK.PUBLISHABLE_KEY}
-        syncHost={CONFIG.CLERK.SYNC_HOST}
-        __experimental_syncHostListener
+        allowedRedirectProtocols={["chrome-extension:"]}
+        signInFallbackRedirectUrl={popupUrl}
+        signUpFallbackRedirectUrl={popupUrl}
+        afterSignOutUrl={popupUrl}
+        {...(CONFIG.CLERK.SYNC_HOST
+          ? {
+              syncHost: CONFIG.CLERK.SYNC_HOST,
+              __experimental_syncHostListener: true,
+            }
+          : {})}
       >
         <App />
       </ClerkProvider>

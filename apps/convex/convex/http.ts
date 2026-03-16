@@ -3,6 +3,11 @@ import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 
 const http = httpRouter();
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 // Stripe webhook endpoint
 http.route({
@@ -77,11 +82,40 @@ http.route({
   handler: httpAction(async () => {
     return new Response(null, {
       status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
+      headers: corsHeaders,
+    });
+  }),
+});
+
+http.route({
+  path: "/api/analytics",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }),
+});
+
+http.route({
+  path: "/api/analytics",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    try {
+      const payload = await request.json();
+      console.log("Extension analytics event:", payload);
+    } catch (error) {
+      console.warn("Failed to parse analytics payload:", error);
+      return new Response("Invalid analytics payload", {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
     });
   }),
 });

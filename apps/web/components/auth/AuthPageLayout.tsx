@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { FileText, Sparkles, Shield } from "lucide-react";
+import { ApplyingMyselfLogo } from "@/components/ApplyingMyselfLogo";
 
 interface AuthPageLayoutProps {
   children: ReactNode;
@@ -32,7 +33,8 @@ export function AuthPageLayout({
       <div className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-0 px-4 py-10 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
         {/* Left — branding panel */}
         <section className="hidden lg:flex lg:flex-col lg:justify-center">
-          <Link href="/" className="flex items-center gap-1 mb-12">
+          <Link href="/" className="flex items-center gap-2 mb-12">
+            <ApplyingMyselfLogo size="md" className="shrink-0" />
             <span className="font-display italic text-xl text-foreground">
               applying myself
             </span>
@@ -88,7 +90,8 @@ export function AuthPageLayout({
         <section className="w-full max-w-[420px] justify-self-center">
           {/* Mobile logo */}
           <div className="mb-8 flex flex-col items-center lg:hidden">
-            <Link href="/" className="flex items-center gap-1 mb-4">
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <ApplyingMyselfLogo size="md" className="shrink-0" />
               <span className="font-display italic text-xl text-foreground">
                 applying myself
               </span>

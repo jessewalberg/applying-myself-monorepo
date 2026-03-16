@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { SignIn } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { RedirectIfAuthenticated } from "@/components/RedirectIfAuthenticated";
@@ -10,11 +10,16 @@ import {
   resolveSafeRedirectPath,
   withRedirectParam,
 } from "@/lib/authRedirect";
+import { captureWebEvent } from "@/lib/analytics";
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const redirectTo = resolveSafeRedirectPath(searchParams.get("redirect"));
   const signUpUrl = withRedirectParam("/register", redirectTo);
+
+  useEffect(() => {
+    captureWebEvent("login_viewed", { redirect_to: redirectTo });
+  }, [redirectTo]);
 
   return (
     <RedirectIfAuthenticated redirectTo={redirectTo}>

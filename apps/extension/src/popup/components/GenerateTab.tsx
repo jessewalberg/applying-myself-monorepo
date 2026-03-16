@@ -9,12 +9,15 @@ import {
   AlertCircle,
   Upload,
   Briefcase,
-  RefreshCw,
   ChevronDown,
   ExternalLink,
+  HelpCircle,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { convexApi } from "@/services/convexApi";
+import { trackExtensionEvent } from "@/core/analytics/track";
+import { CoverLetterGenerationError } from "@/core/convex/coverLetterClient";
 import type {
   GenerateTabProps,
   Resume,
@@ -49,10 +52,11 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     checkForExtractedContent,
     extractFromActiveTab,
   } = useExtractJob();
-  const { generate } = useGenerateCoverLetter();
+  const { generate, retry } = useGenerateCoverLetter();
   const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [failedCoverLetterId, setFailedCoverLetterId] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
 
@@ -95,12 +99,20 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
   const handleExtractContent = async (): Promise<void> => {
     setLoading(true);
     setError("");
+    void trackExtensionEvent("extension_generate_extract_started");
     try {
       const result = await extractFromActiveTab();
       onUserUpdate({ ...user, credits: result.remainingCredits });
       setStep(2);
+      void trackExtensionEvent("extension_generate_extract_completed", {
+        company: result.extractedData.company || "",
+        page_type: result.extractedData.pageType || "",
+      });
     } catch (err: unknown) {
       console.error("Content extraction error:", err);
+      void trackExtensionEvent("extension_generate_extract_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
       setError(
         err instanceof Error ? err.message : "Failed to extract content."
       );
@@ -130,8 +142,14 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
     }
     setLoading(true);
     setError("");
+    setFailedCoverLetterId(null);
     setCoverLetter("Generating your personalized cover letter...");
     setStep(3);
+    void trackExtensionEvent("extension_generate_started", {
+      company: extractedData.company || "",
+      job_title: extractedData.title || "",
+      track_application: String(trackApplication),
+    });
     try {
       const response = await generate({
         selectedResume,
@@ -149,6 +167,11 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
         },
       });
       setCoverLetter(response.coverLetter.content);
+      setFailedCoverLetterId(null);
+      void trackExtensionEvent("extension_generate_completed", {
+        cover_letter_id: response.coverLetter.id,
+        generation_attempts: String(response.coverLetter.generationAttempts),
+      });
       const updatedUserProfile = await convexApi.getUserProfile();
       if (updatedUserProfile) {
         const updatedUser: User = {
@@ -157,16 +180,67 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
           name: updatedUserProfile.name,
           credits: updatedUserProfile.credits || 0,
           plan: updatedUserProfile.plan,
+          isAdmin: !!(updatedUserProfile as { isAdmin?: boolean }).isAdmin,
         };
         onUserUpdate(updatedUser);
       }
     } catch (err: unknown) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : "Failed to generate cover letter. Please try again."
+          : "Failed to generate cover letter. Please try again.";
+      console.error("Cover letter generation failed:", err);
+      void trackExtensionEvent("extension_generate_failed", {
+        error: message,
+      });
+      if (err instanceof CoverLetterGenerationError) {
+        setFailedCoverLetterId(err.coverLetterId);
+      } else {
+        setStep(2);
+      }
+      setError(
+        message
       );
-      setStep(2);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRetryGeneration = async (): Promise<void> => {
+    if (!failedCoverLetterId) {
+      await handleGenerateCoverLetter();
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setCoverLetter("Generating your personalized cover letter...");
+    setStep(3);
+    void trackExtensionEvent("extension_generate_retry_started", {
+      cover_letter_id: failedCoverLetterId,
+    });
+
+    try {
+      const response = await retry(failedCoverLetterId, (progressContent: string) => {
+        setCoverLetter(progressContent);
+      });
+      setCoverLetter(response.coverLetter.content);
+      setFailedCoverLetterId(null);
+      void trackExtensionEvent("extension_generate_retry_completed", {
+        cover_letter_id: response.coverLetter.id,
+        generation_attempts: String(response.coverLetter.generationAttempts),
+      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to retry cover letter generation. Please try again.";
+      console.error("Cover letter retry failed:", err);
+      void trackExtensionEvent("extension_generate_retry_failed", {
+        cover_letter_id: failedCoverLetterId,
+        error: message,
+      });
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -337,18 +411,65 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
           <ContentPreview data={extractedData} />
 
           {/* Job Tracking Toggle */}
-          <div className="mt-4 rounded-md border border-border p-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={trackApplication}
-                onChange={(e) => setTrackApplication(e.target.checked)}
-                className="rounded border-border text-primary focus:ring-primary"
-              />
-              <span className="text-xs font-medium text-foreground">
-                Track as job application
-              </span>
-            </label>
+          <div
+            className={`mt-4 rounded-lg border p-3 transition-colors ${
+              trackApplication
+                ? "border-primary/30 bg-primary/5"
+                : "border-border bg-background/60"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={trackApplication}
+                aria-label="Track as job application"
+                onClick={() => setTrackApplication((current) => !current)}
+                className={`mt-0.5 relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
+                  trackApplication
+                    ? "border-primary bg-primary"
+                    : "border-border bg-secondary"
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                    trackApplication ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTrackApplication((current) => !current)}
+                    className="text-left"
+                  >
+                    <p className="text-xs font-semibold text-foreground">
+                      Track as job application
+                    </p>
+                  </button>
+
+                  <div className="group relative">
+                    <button
+                      type="button"
+                      className="rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      aria-label="What does track as job application do?"
+                    >
+                      <HelpCircle className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-52 -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2 text-[11px] leading-relaxed text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      Saves this role to your job tracker and links the generated
+                      cover letter so you can revisit status and notes later.
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Keep this role in your pipeline with status and notes attached.
+                </p>
+              </div>
+            </div>
 
             {trackApplication && (
               <div className="mt-3 space-y-2">
@@ -397,20 +518,33 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
             loading={loading}
           />
 
-          <button
-            onClick={handleGenerateCoverLetter}
-            disabled={!selectedResume || loading}
-            className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              "Generate Cover Letter (3 credits)"
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={handleGenerateCoverLetter}
+              disabled={!selectedResume || loading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Cover Letter (3 credits)"
+              )}
+            </button>
+
+            {failedCoverLetterId && (
+              <button
+                onClick={handleRetryGeneration}
+                disabled={loading}
+                className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-border bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Retry
+              </button>
             )}
-          </button>
+          </div>
         </div>
       )}
 
@@ -440,6 +574,27 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
                 </span>
               </div>
             )}
+
+          {!loading && error && (
+            <div className="flex items-start gap-2 mb-3 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+              <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
+              <div className="flex-1">
+                <p className="text-xs text-destructive font-medium">
+                  Generation failed
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{error}</p>
+              </div>
+              {failedCoverLetterId && (
+                <button
+                  onClick={handleRetryGeneration}
+                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground text-xs font-medium hover:bg-secondary transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
 
           <textarea
             value={coverLetter}
