@@ -1,9 +1,9 @@
 // convex/coverLetters.ts
-import { mutation, query, action, ActionCtx } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getCurrentUserProfile } from "./userHelpers";
 import { api } from "./_generated/api";
-import { CREDITS, PAGINATION, FILE_TYPES } from "./constants";
+import { CREDITS, CREDIT_TRANSACTION_TYPES, PAGINATION } from "./constants";
 import type { Doc, Id } from "./_generated/dataModel";
 
 type RetryableCoverLetterDoc = Doc<"coverLetters"> & {
@@ -136,7 +136,7 @@ export const generate = mutation({
       preferences: preferences || undefined,
       createdAt: now,
       updatedAt: now,
-    } as any);
+    });
 
     console.info("[convex.coverLetters.generate] queued", {
       coverLetterId,
@@ -156,10 +156,11 @@ export const generate = mutation({
     // Log credit transaction
     await ctx.db.insert("creditTransactions", {
       userProfileId: userProfile._id,
-      type: "spent",
+      type: CREDIT_TRANSACTION_TYPES.SPENT,
       amount: creditsRequired,
       balance: newBalance,
       source: "generate-cover-letter",
+      sourceId: coverLetterId,
       description: "Cover letter generation",
       createdAt: now,
     });
@@ -171,6 +172,7 @@ export const generate = mutation({
       jobDescription: extractedContent.description || "",
       company: extractedContent.company || "",
       jobTitle: extractedContent.title || "",
+      candidateName: userProfile.name,
       preferences,
     });
 
@@ -253,6 +255,75 @@ export const generateFromForm = mutation({
     }
 
     return generated;
+  },
+});
+
+export const refundFailedGenerationCredits = internalMutation({
+  args: {
+    coverLetterId: v.id("coverLetters"),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    refunded: v.boolean(),
+    newBalance: v.optional(v.number()),
+  }),
+  handler: async (ctx, args) => {
+    const coverLetter = await ctx.db.get(args.coverLetterId) as RetryableCoverLetterDoc | null;
+    if (!coverLetter) {
+      throw new ConvexError("Cover letter not found");
+    }
+
+    const refundAmount = coverLetter.creditsUsed ?? 0;
+    if (refundAmount <= 0) {
+      return { refunded: false };
+    }
+
+    const existingRefund = await ctx.db
+      .query("creditTransactions")
+      .withIndex("by_user", (q) => q.eq("userProfileId", coverLetter.userProfileId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("type"), CREDIT_TRANSACTION_TYPES.REFUNDED),
+          q.eq(q.field("source"), "generate-cover-letter"),
+          q.eq(q.field("sourceId"), args.coverLetterId)
+        )
+      )
+      .first();
+
+    if (existingRefund) {
+      return { refunded: false, newBalance: existingRefund.balance };
+    }
+
+    const userProfile = await ctx.db.get(coverLetter.userProfileId);
+    if (!userProfile) {
+      throw new ConvexError("User profile not found");
+    }
+
+    const newBalance = (userProfile.credits || 0) + refundAmount;
+    const now = Date.now();
+
+    await ctx.db.patch(userProfile._id, {
+      credits: newBalance,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("creditTransactions", {
+      userProfileId: userProfile._id,
+      type: CREDIT_TRANSACTION_TYPES.REFUNDED,
+      amount: refundAmount,
+      balance: newBalance,
+      source: "generate-cover-letter",
+      sourceId: args.coverLetterId,
+      description: args.reason || "Cover letter generation refund",
+      createdAt: now,
+    });
+
+    await ctx.db.patch(args.coverLetterId, {
+      creditsUsed: 0,
+      updatedAt: now,
+    });
+
+    return { refunded: true, newBalance };
   },
 });
 
@@ -345,6 +416,7 @@ export const retryGeneration = mutation({
       jobDescription: normalizedCoverLetter.jobDescription || "",
       company: normalizedCoverLetter.company || "",
       jobTitle: normalizedCoverLetter.jobTitle || "",
+      candidateName: userProfile.name,
       preferences: normalizedCoverLetter.preferences,
     });
 

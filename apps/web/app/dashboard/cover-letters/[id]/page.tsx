@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import type { jsPDF as JsPdf } from "jspdf";
 import {
     DocumentTextIcon,
     ArrowLeftIcon,
@@ -20,6 +21,82 @@ import {
 import { useQuery, useMutation } from "convex/react";
 import { api } from '@applyingmyself/convex-client';
 import { type GenericId as Id } from "convex/values";
+
+const sanitizeFilenamePart = (value?: string | null) =>
+    (value || "")
+        .trim()
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+
+const buildCoverLetterFilename = (
+    company?: string | null,
+    jobTitle?: string | null,
+    extension: "docx" | "pdf" = "docx"
+) => {
+    const companyPart = sanitizeFilenamePart(company) || "Company";
+    const titlePart = sanitizeFilenamePart(jobTitle) || "Position";
+    return `Cover_Letter_${companyPart}_${titlePart}.${extension}`;
+};
+
+const splitTextIntoPdfLines = (pdf: JsPdf, text: string, maxWidth: number): string[] =>
+    text
+        .split(/\r?\n/)
+        .flatMap((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return [""];
+            return pdf.splitTextToSize(trimmed, maxWidth) as string[];
+        });
+
+const writeWrappedPdfBlock = (
+    pdf: JsPdf,
+    text: string,
+    currentY: number,
+    options: {
+        fontSize: number;
+        fontStyle: "bold" | "normal" | "italic";
+        maxWidth: number;
+        pageHeight: number;
+        margin: number;
+        gapAfter: number;
+    }
+) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+        return currentY;
+    }
+
+    pdf.setFontSize(options.fontSize);
+    pdf.setFont("helvetica", options.fontStyle);
+
+    const lines = splitTextIntoPdfLines(pdf, trimmed, options.maxWidth);
+    const lineHeight = Math.max(pdf.getTextDimensions("Ag").h * 1.2, 6);
+    const bottomLimit = options.pageHeight - options.margin;
+    let nextY = currentY;
+    let index = 0;
+
+    while (index < lines.length) {
+        const availableHeight = bottomLimit - nextY;
+        const linesThatFit = Math.max(Math.floor(availableHeight / lineHeight), 0);
+
+        if (linesThatFit === 0) {
+            pdf.addPage();
+            nextY = options.margin;
+            continue;
+        }
+
+        const chunk = lines.slice(index, index + linesThatFit);
+        pdf.text(chunk, options.margin, nextY);
+        nextY += chunk.length * lineHeight;
+        index += chunk.length;
+
+        if (index < lines.length) {
+            pdf.addPage();
+            nextY = options.margin;
+        }
+    }
+
+    return nextY + options.gapAfter;
+};
 
 export default function CoverLetterDetailPage() {
     const params = useParams();
@@ -133,7 +210,7 @@ export default function CoverLetterDetailPage() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Cover_Letter_${coverLetter.company || 'Company'}_${coverLetter.jobTitle || 'Position'}.docx`.replace(/[^a-zA-Z0-9]/g, '_');
+            link.download = buildCoverLetterFilename(coverLetter.company, coverLetter.jobTitle, "docx");
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -152,30 +229,61 @@ export default function CoverLetterDetailPage() {
 
             const pdf = new jsPDF();
             const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 20;
             const maxWidth = pageWidth - (margin * 2);
+            let currentY = 30;
 
-            pdf.setFontSize(16);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text(`Cover Letter - ${coverLetter.jobTitle || 'Position'}`, margin, 30);
+            currentY = writeWrappedPdfBlock(pdf, `Cover Letter - ${coverLetter.jobTitle || 'Position'}`, currentY, {
+                fontSize: 16,
+                fontStyle: 'bold',
+                maxWidth,
+                pageHeight,
+                margin,
+                gapAfter: 6,
+            });
 
             if (coverLetter.company) {
-                pdf.setFontSize(14);
-                pdf.text(coverLetter.company, margin, 45);
+                currentY = writeWrappedPdfBlock(pdf, coverLetter.company, currentY, {
+                    fontSize: 14,
+                    fontStyle: 'bold',
+                    maxWidth,
+                    pageHeight,
+                    margin,
+                    gapAfter: 6,
+                });
             }
 
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'italic');
-            pdf.text(`Generated on ${new Date(coverLetter.createdAt || coverLetter._creationTime).toLocaleDateString()}`, margin, coverLetter.company ? 60 : 50);
+            currentY = writeWrappedPdfBlock(
+                pdf,
+                `Generated on ${new Date(coverLetter.createdAt || coverLetter._creationTime).toLocaleDateString()}`,
+                currentY,
+                {
+                    fontSize: 10,
+                    fontStyle: 'italic',
+                    maxWidth,
+                    pageHeight,
+                    margin,
+                    gapAfter: 10,
+                }
+            );
 
-            pdf.setFontSize(12);
-            pdf.setFont('helvetica', 'normal');
+            coverLetter.content
+                .split(/\n{2,}/)
+                .map((paragraph: string) => paragraph.trim())
+                .filter(Boolean)
+                .forEach((paragraph: string) => {
+                    currentY = writeWrappedPdfBlock(pdf, paragraph, currentY, {
+                        fontSize: 12,
+                        fontStyle: 'normal',
+                        maxWidth,
+                        pageHeight,
+                        margin,
+                        gapAfter: 8,
+                    });
+                });
 
-            const startY = coverLetter.company ? 80 : 70;
-            const lines = pdf.splitTextToSize(coverLetter.content, maxWidth);
-            pdf.text(lines, margin, startY);
-
-            const filename = `Cover_Letter_${coverLetter.company || 'Company'}_${coverLetter.jobTitle || 'Position'}.pdf`.replace(/[^a-zA-Z0-9]/g, '_');
+            const filename = buildCoverLetterFilename(coverLetter.company, coverLetter.jobTitle, "pdf");
             pdf.save(filename);
         } catch (error) {
             console.error('Failed to generate PDF:', error);

@@ -1,7 +1,10 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
-import { generateCoverLetter as generateCoverLetterWithOpenRouter } from "../lib/ai";
+import { api, internal } from "./_generated/api";
+import {
+  extractTextFromResume as extractResumeTextFromFile,
+  generateCoverLetter as generateCoverLetterWithOpenRouter,
+} from "../lib/ai";
 
 export const generateCoverLetter = action({
   args: {
@@ -10,6 +13,7 @@ export const generateCoverLetter = action({
     jobDescription: v.string(),
     company: v.string(),
     jobTitle: v.string(),
+    candidateName: v.optional(v.string()),
     preferences: v.optional(v.object({
       tone: v.optional(v.union(v.literal("professional"), v.literal("casual"), v.literal("enthusiastic"))),
       focus: v.optional(v.union(v.literal("experience"), v.literal("skills"), v.literal("achievements"))),
@@ -26,16 +30,16 @@ export const generateCoverLetter = action({
       company: args.company,
       jobTitle: args.jobTitle,
     });
-    
-    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OpenRouter API key not configured");
-    }
 
     let coverLetterContent: string;
     let tokensUsed = 0;
 
     try {
+      const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error("OpenRouter API key not configured");
+      }
+
       const result = await generateCoverLetterWithOpenRouter(
         {
           title: args.jobTitle,
@@ -46,7 +50,8 @@ export const generateCoverLetter = action({
           benefits: [],
         },
         args.resumeText,
-        args.preferences
+        args.preferences,
+        args.candidateName
       );
       coverLetterContent = result.content;
       tokensUsed = result.tokensUsed;
@@ -56,6 +61,18 @@ export const generateCoverLetter = action({
         tokensUsed,
       });
 
+      await ctx.runMutation(api.coverLetters.updateContent, {
+        coverLetterId: args.coverLetterId,
+        content: coverLetterContent,
+        tokensUsed,
+        generationStatus: "completed",
+        generationError: null,
+      });
+
+      return {
+        success: true,
+        tokensUsed,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown OpenRouter generation error";
@@ -64,30 +81,39 @@ export const generateCoverLetter = action({
         error: errorMessage,
       });
 
-      await ctx.runMutation(api.coverLetters.updateContent, {
-        coverLetterId: args.coverLetterId,
-        content: "Cover letter generation failed. Retry to try again.",
-        generationStatus: "failed",
-        generationError: errorMessage,
-        tokensUsed: 0,
-      });
+      try {
+        await ctx.runMutation(api.coverLetters.updateContent, {
+          coverLetterId: args.coverLetterId,
+          content: "Cover letter generation failed. Retry to try again.",
+          generationStatus: "failed",
+          generationError: errorMessage,
+          tokensUsed: 0,
+        });
+      } catch (updateError) {
+        console.error("[convex.ai.generateCoverLetter] failed to persist failure state", {
+          coverLetterId: args.coverLetterId,
+          error:
+            updateError instanceof Error ? updateError.message : "Unknown updateContent error",
+        });
+      }
+
+      try {
+        await ctx.runMutation(internal.coverLetters.refundFailedGenerationCredits, {
+          coverLetterId: args.coverLetterId,
+          reason: "Cover letter generation failed",
+        });
+      } catch (refundError) {
+        console.error("[convex.ai.generateCoverLetter] failed to refund credits", {
+          coverLetterId: args.coverLetterId,
+          error:
+            refundError instanceof Error
+              ? refundError.message
+              : "Unknown refundFailedGenerationCredits error",
+        });
+      }
 
       throw error;
     }
-
-    // Update the cover letter with generated content
-    await ctx.runMutation(api.coverLetters.updateContent, {
-      coverLetterId: args.coverLetterId,
-      content: coverLetterContent,
-      tokensUsed,
-      generationStatus: "completed",
-      generationError: null,
-    });
-
-    return {
-      success: true,
-      tokensUsed,
-    };
   },
 });
 
@@ -225,24 +251,28 @@ export const extractTextFromResume = action({
     resumeId: v.id("resumes"),
     fileId: v.id("_storage"),
     mimeType: v.string(),
+    fallbackName: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
     console.log("Extracting text from resume:", args.fileId);
-    
-    // TODO: Implement actual resume text extraction based on file type
-    // For PDFs, use pdf-parse or similar
-    // For DOCX, use mammoth or similar
-    
+
     const fileUrl = await ctx.storage.getUrl(args.fileId);
     if (!fileUrl) {
       throw new Error("File not found");
     }
-    
-    // Placeholder text extraction
-    const extractedText = "John Doe\nSoftware Engineer\n\nExperience:\n- 5 years of full-stack development\n- Proficient in JavaScript, TypeScript, React, Node.js\n- Experience with databases and cloud platforms\n\nEducation:\n- Bachelor's in Computer Science";
+
+    const extractedText = (await extractResumeTextFromFile(fileUrl, args.mimeType)).trim()
+      || [
+        args.fallbackName?.trim(),
+        "Resume uploaded successfully.",
+        `Automatic text extraction is not implemented yet for ${args.mimeType} files.`,
+        "Use the candidate name above for personalization, and do not infer work history or metrics from this placeholder alone.",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
     // Update the resume with extracted text
     await ctx.runMutation(api.resumes.updateExtractedText, {

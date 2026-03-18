@@ -122,6 +122,7 @@ export default defineSchema({
     resumeId: v.id("resumes"),
     jobTitle: v.optional(v.string()),
     company: v.optional(v.string()),
+    jobDescription: v.optional(v.string()),
     content: v.string(),
     generationStatus: v.optional(v.union(
       v.literal("pending"),

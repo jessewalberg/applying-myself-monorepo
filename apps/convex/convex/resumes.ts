@@ -113,6 +113,7 @@ export const completeUpload = mutation({
       resumeId: resumeId,
       fileId: args.storageId,
       mimeType: args.mimeType,
+      fallbackName: userProfile.name,
     });
 
     return { 

@@ -26,6 +26,61 @@ interface CoverLetterPreferences {
   length?: 'short' | 'medium' | 'long';
 }
 
+const LEGACY_RESUME_PLACEHOLDER_SNIPPETS = [
+  "John Doe",
+  "5 years of full-stack development",
+  "Proficient in JavaScript, TypeScript, React, Node.js",
+];
+
+function isLegacyResumePlaceholder(resumeText: string): boolean {
+  if (!resumeText.trim()) return false;
+  return LEGACY_RESUME_PLACEHOLDER_SNIPPETS.every((snippet) => resumeText.includes(snippet));
+}
+
+function sanitizeResumeTextForPrompt(resumeText: string): string {
+  if (isLegacyResumePlaceholder(resumeText)) {
+    return "";
+  }
+
+  return resumeText.trim();
+}
+
+function normalizeCandidateName(candidateName?: string): string | undefined {
+  const trimmed = candidateName?.trim();
+  if (!trimmed) return undefined;
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "user" || normalized === "john doe") {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
+function looksLikeCandidateName(line: string): boolean {
+  const trimmed = line.replace(/\s+/g, " ").trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (/[0-9@|:/\\]/.test(trimmed)) return false;
+
+  const words = trimmed.split(" ");
+  if (words.length < 2 || words.length > 4) return false;
+
+  return words.every((word) => /^[A-Za-z][A-Za-z'.-]*$/.test(word));
+}
+
+function inferCandidateName(resumeText: string, fallbackName?: string): string | undefined {
+  const firstMeaningfulLine = resumeText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (firstMeaningfulLine && looksLikeCandidateName(firstMeaningfulLine)) {
+    return firstMeaningfulLine;
+  }
+
+  return normalizeCandidateName(fallbackName);
+}
+
 interface ChatCompletionUsage {
   prompt_tokens: number;
   completion_tokens: number;
@@ -242,15 +297,20 @@ Use your best judgement to extract the information. Use null for missing fields.
 export async function generateCoverLetter(
   jobData: JobExtractionData, 
   resumeText: string, 
-  preferences: CoverLetterPreferences = {}
+  preferences: CoverLetterPreferences = {},
+  candidateName?: string
 ) {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
     throw new Error("OpenRouter API key not configured");
   }
 
-  // Truncate resume text to avoid token limits
-  const truncatedResume = resumeText.substring(0, 8000);
+  const sanitizedResumeText = sanitizeResumeTextForPrompt(resumeText);
+  const effectiveCandidateName = inferCandidateName(sanitizedResumeText, candidateName);
+  const truncatedResume = sanitizedResumeText.substring(0, 8000);
+  const resumeContext = truncatedResume
+    ? truncatedResume
+    : "[Resume text unavailable or extraction is still limited for this file type. Use only the candidate name and job information provided below. Do not invent resume details.]";
   
   const prompt = `
 You are an expert cover letter writer with 15+ years of experience. Create a personalized, compelling cover letter based on the job information and candidate's resume.
@@ -258,8 +318,11 @@ You are an expert cover letter writer with 15+ years of experience. Create a per
 Job Information:
 ${JSON.stringify(jobData, null, 2)}
 
+Candidate Details:
+- Name: ${effectiveCandidateName || "Not provided"}
+
 Resume Content:
-${truncatedResume}
+${resumeContext}
 
 Writing Preferences:
 - Tone: ${preferences.tone || 'professional'}
@@ -285,6 +348,9 @@ Important guidelines:
 - Include relevant keywords from the job posting
 - Format as clean, readable text
 - No placeholder text or brackets
+- Use the candidate's name only if it is provided above or clearly present in the resume content
+- Never use placeholder names like "John Doe" and never invent a candidate name
+- If the resume details are limited, do not invent employers, achievements, or metrics that were not provided
 - Professional closing with candidate's interest in next steps
 
 Generate the cover letter now:
@@ -322,25 +388,17 @@ Generate the cover letter now:
 // Extract text from resume file
 export async function extractTextFromResume(fileUrl: string, mimeType: string): Promise<string> {
   if (mimeType.includes('pdf')) {
-    // For PDFs, we need a proper PDF parser. For now, return a placeholder
-    // In production, you would use a library like pdf-parse or pdf2pic + OCR
     console.warn('PDF text extraction not fully implemented. Consider using a PDF parsing library.');
-    return `[PDF Resume Content - ${mimeType}]\n\nNote: This is a PDF file. Text extraction from PDFs requires additional processing. Please ensure your resume content is accessible for the best cover letter generation results.`;
+    return "";
   } else if (mimeType.includes('word')) {
-    // For Word documents, return as-is for now (would need proper parser)
-    try {
-      const response = await fetch(fileUrl);
-      return await response.text();
-    } catch (error) {
-      return `[Word Document - ${mimeType}]\n\nUnable to extract text from Word document.`;
-    }
+    console.warn('Word text extraction not fully implemented. Consider using a DOCX parsing library.');
+    return "";
   } else {
-    // Plain text or other formats
     try {
       const response = await fetch(fileUrl);
       return await response.text();
     } catch (error) {
-      return `[Document - ${mimeType}]\n\nUnable to extract text from document.`;
+      return "";
     }
   }
 }

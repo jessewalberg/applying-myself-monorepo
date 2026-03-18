@@ -9,6 +9,87 @@ export interface DocumentData {
     filename?: string;
 }
 
+const splitTextIntoPdfLines = (
+    pdf: import("jspdf").jsPDF,
+    text: string,
+    maxWidth: number
+): string[] =>
+    text
+        .split(/\r?\n/)
+        .flatMap((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return [""];
+            return pdf.splitTextToSize(trimmed, maxWidth) as string[];
+        });
+
+const writeWrappedPdfBlock = (
+    pdf: import("jspdf").jsPDF,
+    text: string,
+    currentY: number,
+    options: {
+        fontSize: number;
+        fontStyle: "bold" | "normal" | "italic";
+        maxWidth: number;
+        pageHeight: number;
+        margin: number;
+        gapAfter: number;
+    }
+): number => {
+    const trimmed = text.trim();
+    if (!trimmed) return currentY;
+
+    pdf.setFontSize(options.fontSize);
+    pdf.setFont("helvetica", options.fontStyle);
+
+    const lines = splitTextIntoPdfLines(pdf, trimmed, options.maxWidth);
+    const lineHeight = Math.max(pdf.getTextDimensions("Ag").h * 1.2, 6);
+    const bottomLimit = options.pageHeight - options.margin;
+    let nextY = currentY;
+    let index = 0;
+
+    while (index < lines.length) {
+        const availableHeight = bottomLimit - nextY;
+        const linesThatFit = Math.max(Math.floor(availableHeight / lineHeight), 0);
+
+        if (linesThatFit === 0) {
+            pdf.addPage();
+            nextY = options.margin;
+            continue;
+        }
+
+        const chunk = lines.slice(index, index + linesThatFit);
+        pdf.text(chunk, options.margin, nextY);
+        nextY += chunk.length * lineHeight;
+        index += chunk.length;
+
+        if (index < lines.length) {
+            pdf.addPage();
+            nextY = options.margin;
+        }
+    }
+
+    return nextY + options.gapAfter;
+};
+
+const escapeHtml = (value: string): string =>
+    value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+const coverLetterContentToHtml = (content: string): string => {
+    const paragraphs = content
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+
+    return paragraphs
+        .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+        .join("");
+};
+
 export const generateDocx = async (data: DocumentData): Promise<void> => {
     try {
         const { Document, Packer, Paragraph, TextRun } = await import('docx');
@@ -82,35 +163,59 @@ export const generatePdf = async (data: DocumentData): Promise<void> => {
 
         const pdf = new jsPDF();
         const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
         const margin = 20;
         const maxWidth = pageWidth - (margin * 2);
+        let currentY = 30;
 
-        // Title
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(data.title, margin, 30);
+        currentY = writeWrappedPdfBlock(pdf, data.title, currentY, {
+            fontSize: 16,
+            fontStyle: "bold",
+            maxWidth,
+            pageHeight,
+            margin,
+            gapAfter: 6,
+        });
 
-        let currentY = 45;
-
-        // Company
         if (data.company) {
-            pdf.setFontSize(14);
-            pdf.text(data.company, margin, currentY);
-            currentY += 15;
+            currentY = writeWrappedPdfBlock(pdf, data.company, currentY, {
+                fontSize: 14,
+                fontStyle: "bold",
+                maxWidth,
+                pageHeight,
+                margin,
+                gapAfter: 6,
+            });
         }
 
-        // Date
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text(`Generated on ${new Date(data.createdAt).toLocaleDateString()}`, margin, currentY);
-        currentY += 20;
+        currentY = writeWrappedPdfBlock(
+            pdf,
+            `Generated on ${new Date(data.createdAt).toLocaleDateString()}`,
+            currentY,
+            {
+                fontSize: 10,
+                fontStyle: "italic",
+                maxWidth,
+                pageHeight,
+                margin,
+                gapAfter: 10,
+            }
+        );
 
-        // Content
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-
-        const lines = pdf.splitTextToSize(data.content, maxWidth);
-        pdf.text(lines, margin, currentY);
+        data.content
+            .split(/\n{2,}/)
+            .map((paragraph) => paragraph.trim())
+            .filter(Boolean)
+            .forEach((paragraph) => {
+                currentY = writeWrappedPdfBlock(pdf, paragraph, currentY, {
+                    fontSize: 12,
+                    fontStyle: "normal",
+                    maxWidth,
+                    pageHeight,
+                    margin,
+                    gapAfter: 8,
+                });
+            });
 
         // Download
         const filename = data.filename || 'document.pdf';
@@ -132,4 +237,21 @@ export const generateResumeFilename = (originalFilename: string, format: 'docx' 
     const cleanString = (str: string) => str.replace(/[^a-zA-Z0-9]/g, '_');
     const baseName = originalFilename.replace(/\.[^/.]+$/, ""); // Remove original extension
     return `${cleanString(baseName)}.${format}`;
-}; 
+};
+
+export const copyDocumentToClipboard = async (content: string): Promise<void> => {
+    const plainText = content.trim();
+    const html = coverLetterContentToHtml(plainText);
+
+    if (typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                "text/plain": new Blob([plainText], { type: "text/plain" }),
+                "text/html": new Blob([html], { type: "text/html" }),
+            }),
+        ]);
+        return;
+    }
+
+    await navigator.clipboard.writeText(plainText);
+};

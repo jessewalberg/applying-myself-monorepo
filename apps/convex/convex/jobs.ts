@@ -168,19 +168,21 @@ export const extractFromHTML = action({
       };
 
       if (result.success && result.jobData) {
+        const normalizedJobData = cleanNullValues(result.jobData);
+
         // AI extraction successful
         extractedContent = {
-          title: result.jobData.title || args.title || "Job Position",
-          company: result.jobData.company || "Unknown Company",
-          location: result.jobData.location || "Not specified",
-          description: result.jobData.description || "No description available",
-          requirements: result.jobData.requirements || [],
-          salary: result.jobData.salary,
-          type: result.jobData.jobType,
+          title: normalizedJobData.title || args.title || "Job Position",
+          company: normalizedJobData.company || "Unknown Company",
+          location: normalizedJobData.location || "Not specified",
+          description: normalizedJobData.description || "No description available",
+          requirements: normalizedJobData.requirements || [],
+          salary: normalizedJobData.salary,
+          type: normalizedJobData.jobType,
           postedDate: undefined,
           url: args.url,
           confidence: result.confidence,
-          pageType: result.jobData.pageType || "job",
+          pageType: normalizedJobData.pageType || "job",
           domain,
           remainingCredits: newBalance,
         };
@@ -189,19 +191,19 @@ export const extractFromHTML = action({
         await ctx.runMutation(api.jobs.updateJobData, {
           jobId,
           extractedData: cleanNullValues({
-            title: result.jobData.title,
-            company: result.jobData.company,
-            location: result.jobData.location,
-            description: result.jobData.description,
-            salary: result.jobData.salary,
-            jobType: result.jobData.jobType,
-            experience: result.jobData.experience,
-            requirements: result.jobData.requirements,
-            skills: result.jobData.skills,
-            benefits: result.jobData.benefits,
-            industry: result.jobData.industry,
-            remote: result.jobData.remote,
-            pageType: result.jobData.pageType || "job",
+            title: normalizedJobData.title,
+            company: normalizedJobData.company,
+            location: normalizedJobData.location,
+            description: normalizedJobData.description,
+            salary: normalizedJobData.salary,
+            jobType: normalizedJobData.jobType,
+            experience: normalizedJobData.experience,
+            requirements: normalizedJobData.requirements,
+            skills: normalizedJobData.skills,
+            benefits: normalizedJobData.benefits,
+            industry: normalizedJobData.industry,
+            remote: normalizedJobData.remote,
+            pageType: normalizedJobData.pageType || "job",
             confidence: result.confidence,
           }),
         });

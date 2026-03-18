@@ -3,7 +3,7 @@ import CONFIG from '@/config';
 
 const EnvironmentBanner: React.FC = () => {
     // Only show banner for non-production environments
-    if (CONFIG.ENVIRONMENT === 'production') {
+    if (CONFIG.ENVIRONMENT === 'production' || CONFIG.ENVIRONMENT === 'staging') {
         return null;
     }
 

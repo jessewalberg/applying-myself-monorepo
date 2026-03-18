@@ -18,6 +18,7 @@ import {
 import { convexApi } from "@/services/convexApi";
 import { trackExtensionEvent } from "@/core/analytics/track";
 import { CoverLetterGenerationError } from "@/core/convex/coverLetterClient";
+import { copyDocumentToClipboard } from "@/utils/documentGenerator";
 import type {
   GenerateTabProps,
   Resume,
@@ -248,7 +249,7 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   const handleCopyToClipboard = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(coverLetter);
+      await copyDocumentToClipboard(coverLetter);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
@@ -259,15 +260,15 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
 
   const handleDownloadAsGoogleDoc = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(coverLetter);
+      await copyDocumentToClipboard(coverLetter);
       chrome.tabs.create({ url: "https://docs.google.com/document/create" });
       setShowDownloadOptions(false);
       alert(
-        "Cover letter copied to clipboard!\n\nGoogle Docs will open in a new tab.\nPaste (Ctrl+V / Cmd+V) your cover letter."
+        "Your cover letter has been copied.\n\nGoogle Docs will open a new blank document in a new tab.\nPaste (Ctrl+V / Cmd+V) to insert it."
       );
     } catch (err) {
       console.error("Failed to open Google Docs:", err);
-      setError("Failed to open Google Docs.");
+      setError("Failed to copy your cover letter for Google Docs.");
     }
   };
 
@@ -646,9 +647,9 @@ const GenerateTab: React.FC<GenerateTabProps> = ({ user, onUserUpdate }) => {
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <div className="text-left">
-                          <div className="font-medium">Google Docs</div>
+                          <div className="font-medium">Copy + Open Docs</div>
                           <div className="text-muted-foreground text-[10px]">
-                            Edit online
+                            Paste into a new Google Doc
                           </div>
                         </div>
                       </button>

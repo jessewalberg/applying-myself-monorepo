@@ -24,6 +24,7 @@ type JobApplication = {
   jobType?: "full-time" | "part-time" | "contract" | "internship" | "freelance";
   resumeId?: Id<"resumes">;
   coverLetterId?: Id<"coverLetters">;
+  extractedJobId?: Id<"extractedJobs">;
 };
 
 type ExtractedJob = {
@@ -80,10 +81,12 @@ const statusLabels = {
   withdrawn: "Withdrawn",
 };
 
+const DEFAULT_SOURCE_FILTER = "application";
+
 export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>(DEFAULT_SOURCE_FILTER);
 
   // Editing state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -111,6 +114,44 @@ export default function JobsPage() {
   const extractedJobs: ExtractedJob[] = extractedJobsQuery?.jobs || [];
   const isLoading = !profileEnsured || jobApplicationsQuery === undefined || extractedJobsQuery === undefined;
 
+  const linkedExtractedJobIds = new Set(
+    applications
+      .map((app) => app.extractedJobId)
+      .filter((extractedJobId): extractedJobId is Id<"extractedJobs"> => extractedJobId !== undefined)
+  );
+
+  const buildExtractedJobKey = (job: ExtractedJob) =>
+    [
+      job.url?.trim().toLowerCase(),
+      job.title?.trim().toLowerCase(),
+      job.company?.trim().toLowerCase(),
+      job.location?.trim().toLowerCase(),
+    ]
+      .filter(Boolean)
+      .join("::");
+
+  const visibleExtractedJobs = (() => {
+    const seenKeys = new Set<string>();
+
+    return extractedJobs.filter((job) => {
+      if (linkedExtractedJobIds.has(job._id)) {
+        return false;
+      }
+
+      const key = buildExtractedJobKey(job);
+      if (!key) {
+        return true;
+      }
+
+      if (seenKeys.has(key)) {
+        return false;
+      }
+
+      seenKeys.add(key);
+      return true;
+    });
+  })();
+
   // Combine both types into a unified list
   const combinedJobs: CombinedJob[] = [
     ...applications.map((app): CombinedJob => ({
@@ -125,7 +166,7 @@ export default function JobsPage() {
       jobUrl: app.jobUrl,
       source: "application",
     })),
-    ...extractedJobs.map((job): CombinedJob => ({
+    ...visibleExtractedJobs.map((job): CombinedJob => ({
       _id: job._id,
       jobTitle: job.title || "Untitled Job",
       companyName: job.company || "Unknown Company",
@@ -167,10 +208,27 @@ export default function JobsPage() {
   const clearAllFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
-    setSourceFilter("all");
+    setSourceFilter(DEFAULT_SOURCE_FILTER);
   };
 
-  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || sourceFilter !== "all";
+  const hasActiveFilters =
+    searchTerm !== "" || statusFilter !== "all" || sourceFilter !== DEFAULT_SOURCE_FILTER;
+  const totalItemsForCurrentSource = sourceFilter === "application"
+    ? applications.length
+    : sourceFilter === "extracted"
+      ? visibleExtractedJobs.length
+      : combinedJobs.length;
+  const currentResultLabel = sourceFilter === "application"
+    ? "applications"
+    : sourceFilter === "extracted"
+      ? "extracted jobs"
+      : "items";
+  const showExtractedJobsEmptyState =
+    sourceFilter === "application" &&
+    searchTerm === "" &&
+    statusFilter === "all" &&
+    applications.length === 0 &&
+    visibleExtractedJobs.length > 0;
 
   const getApplicationsByStatus = (status: keyof typeof statusLabels) => {
     return applications.filter(app => app.status === status).length;
@@ -416,7 +474,7 @@ export default function JobsPage() {
               ) : (
                 <span>
                   Showing <span className="font-medium text-foreground">{filteredJobs.length}</span> of{' '}
-                  <span className="font-medium text-foreground">{combinedJobs.length}</span> jobs
+                  <span className="font-medium text-foreground">{totalItemsForCurrentSource}</span> {currentResultLabel}
                   {hasActiveFilters && (
                     <span className="ml-1 text-primary">(filtered)</span>
                   )}
@@ -454,11 +512,11 @@ export default function JobsPage() {
                 </span>
               )}
 
-              {sourceFilter !== "all" && (
+              {sourceFilter !== DEFAULT_SOURCE_FILTER && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
-                  Source: {sourceFilter === "application" ? "Applications" : "Extracted Jobs"}
+                  Source: {sourceFilter === "all" ? "All Sources" : sourceFilter === "application" ? "Applications" : "Extracted Jobs"}
                   <button
-                    onClick={() => setSourceFilter("all")}
+                    onClick={() => setSourceFilter(DEFAULT_SOURCE_FILTER)}
                     className="ml-1 hover:text-emerald-300"
                   >
                     <XCircleIcon className="h-3 w-3" />
@@ -481,15 +539,28 @@ export default function JobsPage() {
           <div className="text-center py-12">
             <BriefcaseIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
-              {combinedJobs.length === 0 ? "No jobs yet" : "No jobs match your search"}
+              {showExtractedJobsEmptyState
+                ? "No job applications yet"
+                : combinedJobs.length === 0
+                  ? "No jobs yet"
+                  : "No jobs match your search"}
             </h3>
             <p className="text-muted-foreground mb-6">
-              {combinedJobs.length === 0
-                ? "Start tracking job applications or extract jobs from job sites."
-                : "Try adjusting your search or filter criteria."
+              {showExtractedJobsEmptyState
+                ? `You have ${visibleExtractedJobs.length} extracted ${visibleExtractedJobs.length === 1 ? "job" : "jobs"} waiting to be reviewed.`
+                : combinedJobs.length === 0
+                  ? "Start tracking job applications or extract jobs from job sites."
+                  : "Try adjusting your search or filter criteria."
               }
             </p>
-            {combinedJobs.length === 0 && (
+            {showExtractedJobsEmptyState ? (
+              <button
+                onClick={() => setSourceFilter("extracted")}
+                className="btn-secondary"
+              >
+                Show Extracted Jobs
+              </button>
+            ) : combinedJobs.length === 0 && (
               <Link href="/dashboard/jobs/new" className="btn-primary">
                 Add Your First Application
               </Link>
@@ -497,16 +568,16 @@ export default function JobsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-border">
+            <table className="w-full table-fixed divide-y divide-border">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Job</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Applied</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                  <th className="w-[30%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Job</th>
+                  <th className="w-[16%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Company</th>
+                  <th className="w-[18%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</th>
+                  <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Salary</th>
+                  <th className="w-[10%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="w-[8%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Applied</th>
+                  <th className="w-[8%] px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -515,7 +586,7 @@ export default function JobsPage() {
 
                   return (
                     <tr key={job._id} className={isEditing ? "bg-primary/5" : "hover:bg-muted/50"}>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'}`}>
+                      <td className={`px-6 align-top ${isEditing ? 'py-6' : 'py-4'}`}>
                         {isEditing ? (
                           <div className="space-y-3 min-w-[200px]">
                             <input
@@ -534,8 +605,8 @@ export default function JobsPage() {
                             />
                           </div>
                         ) : (
-                          <div>
-                            <div className="text-sm font-medium text-foreground">
+                          <div className="max-w-full">
+                            <div className="text-sm font-medium text-foreground break-words">
                               {job.jobTitle}
                             </div>
                             {job.jobUrl && (
@@ -551,7 +622,7 @@ export default function JobsPage() {
                           </div>
                         )}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm text-foreground`}>
+                      <td className={`px-6 align-top text-sm text-foreground ${isEditing ? 'py-6' : 'py-4'}`}>
                         {isEditing ? (
                           <input
                             type="text"
@@ -561,10 +632,10 @@ export default function JobsPage() {
                             placeholder="Company Name"
                           />
                         ) : (
-                          job.companyName
+                          <span className="break-words">{job.companyName}</span>
                         )}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm text-muted-foreground`}>
+                      <td className={`px-6 align-top text-sm text-muted-foreground ${isEditing ? 'py-6' : 'py-4'}`}>
                         {isEditing ? (
                           <input
                             type="text"
@@ -574,10 +645,10 @@ export default function JobsPage() {
                             placeholder="Location"
                           />
                         ) : (
-                          job.location || "\u2014"
+                          <span className="break-words">{job.location || "\u2014"}</span>
                         )}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm text-foreground`}>
+                      <td className={`px-6 align-top text-sm text-foreground ${isEditing ? 'py-6' : 'py-4'}`}>
                         {isEditing ? (
                           <input
                             type="text"
@@ -587,10 +658,10 @@ export default function JobsPage() {
                             placeholder="Salary"
                           />
                         ) : (
-                          job.salary || "\u2014"
+                          <span className="break-words">{job.salary || "\u2014"}</span>
                         )}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'}`}>
+                      <td className={`px-6 align-top ${isEditing ? 'py-6' : 'py-4'}`}>
                         {isEditing ? (
                           <div className="min-w-[140px]">
                             <Dropdown
@@ -613,27 +684,27 @@ export default function JobsPage() {
                           </div>
                         ) : (
                           job.status ? (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[job.status as keyof typeof statusColors]}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColors[job.status as keyof typeof statusColors]}`}>
                               {statusLabels[job.status as keyof typeof statusLabels]}
                             </span>
                           ) : job.source === "extracted" ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-500/15 text-slate-400">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-slate-500/15 text-slate-400">
                               Extracted
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-blue-500/15 text-blue-400">
                               Applied
                             </span>
                           )
                         )}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm text-muted-foreground`}>
+                      <td className={`px-6 align-top text-sm text-muted-foreground ${isEditing ? 'py-6' : 'py-4 whitespace-nowrap'}`}>
                         {job.appliedDate ? new Date(job.appliedDate).toLocaleDateString() :
                           job.extractedAt ? new Date(job.extractedAt).toLocaleDateString() : "\u2014"}
                       </td>
-                      <td className={`px-6 ${isEditing ? 'py-6 align-top' : 'py-4 whitespace-nowrap'} text-sm font-medium`}>
+                      <td className={`px-6 align-top text-sm font-medium ${isEditing ? 'py-6' : 'py-4 whitespace-nowrap'}`}>
                         {isEditing ? (
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={handleSave}
                               className="text-emerald-400 hover:text-emerald-300 flex items-center space-x-1"
@@ -650,7 +721,7 @@ export default function JobsPage() {
                             </button>
                           </div>
                         ) : (
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => handleEdit(job)}
                               className="text-primary hover:text-primary/80 flex items-center space-x-1"

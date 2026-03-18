@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useHistoryData } from "@/features/history/useHistoryData";
 import CONFIG from "@/config";
+import { copyDocumentToClipboard } from "@/utils/documentGenerator";
 import type { HistoryTabProps, CoverLetter } from "@/types";
 
 const HistoryTab: React.FC<HistoryTabProps> = ({ user, refreshTrigger }) => {
@@ -358,7 +359,7 @@ const LetterViewer: React.FC<LetterViewerProps> = ({ letter, onBack }) => {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(letter.content);
+      await copyDocumentToClipboard(letter.content);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
@@ -368,11 +369,11 @@ const LetterViewer: React.FC<LetterViewerProps> = ({ letter, onBack }) => {
 
   const handleDownloadGoogleDoc = async () => {
     try {
-      await navigator.clipboard.writeText(letter.content);
+      await copyDocumentToClipboard(letter.content);
       chrome.tabs.create({ url: "https://docs.google.com/document/create" });
       setShowDownloadOptions(false);
       alert(
-        "Cover letter copied to clipboard!\nGoogle Docs will open in a new tab."
+        "Your cover letter has been copied.\n\nGoogle Docs will open a new blank document in a new tab.\nPaste (Ctrl+V / Cmd+V) to insert it."
       );
     } catch (err) {
       console.error("Failed:", err);
@@ -467,7 +468,7 @@ const LetterViewer: React.FC<LetterViewerProps> = ({ letter, onBack }) => {
                   onClick={handleDownloadGoogleDoc}
                   className="w-full text-left px-3 py-2 text-xs text-popover-foreground hover:bg-secondary transition-colors"
                 >
-                  Google Docs
+                  Copy + Open Docs
                 </button>
                 <button
                   onClick={handleDownloadWord}
