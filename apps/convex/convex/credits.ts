@@ -364,7 +364,7 @@ export const getApiUsageStats = query({
 });
 
 // Helper function to get daily usage breakdown
-function getDailyUsageBreakdown(entries: any[], days: number) {
+export function getDailyUsageBreakdown(entries: any[], days: number) {
   const dailyData: Record<string, { requests: number; credits: number }> = {};
   
   // Initialize all days in range
