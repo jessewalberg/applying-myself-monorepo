@@ -1,5 +1,8 @@
-// Stripe helper functions for payment processing
-// Note: This is a placeholder implementation. In production, you'd use the actual Stripe SDK.
+import Stripe from "stripe";
+import {
+  CREDIT_PACKAGES as PLAN_CREDIT_PACKAGES,
+  PRICING_PLANS,
+} from "./plans";
 
 export interface StripeCustomer {
   id: string;
@@ -38,17 +41,102 @@ export interface StripeCheckoutSession {
   status: string;
 }
 
-// Mock Stripe functions for development
-// In production, replace these with actual Stripe SDK calls
+function toCents(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+function createStripeClient(apiKey = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder") {
+  return new Stripe(apiKey);
+}
+
+function getStripeClient() {
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("Stripe secret key not configured");
+  }
+
+  return createStripeClient(apiKey);
+}
+
+function mapCustomer(customer: {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  created: number;
+}): StripeCustomer {
+  return {
+    id: customer.id,
+    email: customer.email ?? "",
+    name: customer.name ?? undefined,
+    created: customer.created,
+  };
+}
+
+function mapCheckoutSession(session: {
+  id: string;
+  url?: string | null;
+  customer?: string | { id: string } | null;
+  payment_intent?: string | { id: string } | null;
+  subscription?: string | { id: string } | null;
+  status?: string | null;
+}): StripeCheckoutSession {
+  const customer =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id;
+  const paymentIntent =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+  const subscription =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription?.id;
+
+  return {
+    id: session.id,
+    url: session.url ?? "",
+    customer: customer ?? undefined,
+    payment_intent: paymentIntent ?? undefined,
+    subscription: subscription ?? undefined,
+    status: session.status ?? "open",
+  };
+}
+
+function mapSubscription(subscription: {
+  id: string;
+  customer: string | { id: string };
+  status: string;
+  current_period_start: number;
+  current_period_end: number;
+  cancel_at_period_end: boolean;
+  canceled_at?: number | null;
+  trial_start?: number | null;
+  trial_end?: number | null;
+}): StripeSubscription {
+  return {
+    id: subscription.id,
+    customer:
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id,
+    status: subscription.status,
+    current_period_start: subscription.current_period_start,
+    current_period_end: subscription.current_period_end,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+    canceled_at: subscription.canceled_at ?? undefined,
+    trial_start: subscription.trial_start ?? undefined,
+    trial_end: subscription.trial_end ?? undefined,
+  };
+}
 
 export async function createCustomer(email: string, name?: string): Promise<StripeCustomer> {
-  // Mock implementation
-  return {
-    id: `cus_mock_${Date.now()}`,
+  const stripe = getStripeClient();
+  const customer = await stripe.customers.create({
     email,
-    name,
-    created: Math.floor(Date.now() / 1000),
-  };
+    ...(name ? { name } : {}),
+  });
+  return mapCustomer(customer);
 }
 
 export async function createCheckoutSession(params: {
@@ -59,57 +147,58 @@ export async function createCheckoutSession(params: {
   cancelUrl: string;
   metadata?: Record<string, string>;
 }): Promise<StripeCheckoutSession> {
-  // Mock implementation
-  return {
-    id: `cs_mock_${Date.now()}`,
-    url: `https://checkout.stripe.com/pay/mock_${Date.now()}`,
+  const stripe = getStripeClient();
+  const session = await stripe.checkout.sessions.create({
     customer: params.customer,
-    status: 'open',
-  };
+    line_items: params.priceId ? [{ price: params.priceId, quantity: 1 }] : undefined,
+    mode: params.mode,
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    metadata: params.metadata,
+  });
+  return mapCheckoutSession(session);
 }
 
 export async function retrieveCustomer(customerId: string): Promise<StripeCustomer | null> {
-  // Mock implementation
-  if (customerId.startsWith('cus_mock_')) {
-    return {
-      id: customerId,
-      email: 'mock@example.com',
-      created: Math.floor(Date.now() / 1000),
-    };
+  try {
+    const stripe = getStripeClient();
+    const customer = await stripe.customers.retrieve(customerId);
+    if ("deleted" in customer && customer.deleted) {
+      return null;
+    }
+
+    return mapCustomer(customer);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function retrieveSubscription(subscriptionId: string): Promise<StripeSubscription | null> {
-  // Mock implementation
-  if (subscriptionId.startsWith('sub_mock_')) {
-    return {
-      id: subscriptionId,
-      customer: 'cus_mock_123',
-      status: 'active',
-      current_period_start: Math.floor(Date.now() / 1000),
-      current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
-      cancel_at_period_end: false,
-    };
+  try {
+    const stripe = getStripeClient();
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    return mapSubscription(subscription);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function cancelSubscription(
   subscriptionId: string, 
   cancelAtPeriodEnd = true
 ): Promise<StripeSubscription | null> {
-  // Mock implementation
-  const subscription = await retrieveSubscription(subscriptionId);
-  if (subscription) {
-    return {
-      ...subscription,
-      cancel_at_period_end: cancelAtPeriodEnd,
-      canceled_at: cancelAtPeriodEnd ? undefined : Math.floor(Date.now() / 1000),
-      status: cancelAtPeriodEnd ? 'active' : 'canceled',
-    };
+  try {
+    const stripe = getStripeClient();
+    const subscription = cancelAtPeriodEnd
+      ? await stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true,
+        })
+      : await stripe.subscriptions.cancel(subscriptionId);
+
+    return mapSubscription(subscription);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function constructWebhookEvent(
@@ -117,46 +206,60 @@ export async function constructWebhookEvent(
   signature: string, 
   secret: string
 ): Promise<any> {
-  // Mock implementation - in production, use stripe.webhooks.constructEvent
-  try {
-    return JSON.parse(payload);
-  } catch {
-    throw new Error('Invalid webhook payload');
-  }
+  return createStripeClient().webhooks.constructEvent(payload, signature, secret);
 }
 
 // Pricing configuration
 export const STRIPE_PRICES = {
-  starter_monthly: 'price_starter_monthly',
-  starter_yearly: 'price_starter_yearly',
-  pro_monthly: 'price_pro_monthly',
-  pro_yearly: 'price_pro_yearly',
-  enterprise_monthly: 'price_enterprise_monthly',
-  enterprise_yearly: 'price_enterprise_yearly',
-  credits_10: 'price_credits_10',
-  credits_25: 'price_credits_25',
-  credits_50: 'price_credits_50',
-  credits_100: 'price_credits_100',
+  starter_monthly: PRICING_PLANS.starter.stripePriceId,
+  pro_monthly: PRICING_PLANS.pro.stripePriceId,
+  hired_monthly: PRICING_PLANS.hired.stripePriceId,
+  credits_10: PLAN_CREDIT_PACKAGES.credits_10.stripePriceId,
+  credits_25: PLAN_CREDIT_PACKAGES.credits_25.stripePriceId,
+  credits_50: PLAN_CREDIT_PACKAGES.credits_50.stripePriceId,
+  credits_100: PLAN_CREDIT_PACKAGES.credits_100.stripePriceId,
 } as const;
 
 export const CREDIT_PACKAGES = {
-  credits_10: { credits: 10, price: 500 }, // $5.00
-  credits_25: { credits: 25, price: 1000 }, // $10.00
-  credits_50: { credits: 50, price: 1800 }, // $18.00
-  credits_100: { credits: 100, price: 3000 }, // $30.00
+  credits_10: {
+    credits: PLAN_CREDIT_PACKAGES.credits_10.credits,
+    price: toCents(PLAN_CREDIT_PACKAGES.credits_10.price),
+    stripePriceId: PLAN_CREDIT_PACKAGES.credits_10.stripePriceId,
+  },
+  credits_25: {
+    credits: PLAN_CREDIT_PACKAGES.credits_25.credits,
+    price: toCents(PLAN_CREDIT_PACKAGES.credits_25.price),
+    stripePriceId: PLAN_CREDIT_PACKAGES.credits_25.stripePriceId,
+  },
+  credits_50: {
+    credits: PLAN_CREDIT_PACKAGES.credits_50.credits,
+    price: toCents(PLAN_CREDIT_PACKAGES.credits_50.price),
+    stripePriceId: PLAN_CREDIT_PACKAGES.credits_50.stripePriceId,
+  },
+  credits_100: {
+    credits: PLAN_CREDIT_PACKAGES.credits_100.credits,
+    price: toCents(PLAN_CREDIT_PACKAGES.credits_100.price),
+    stripePriceId: PLAN_CREDIT_PACKAGES.credits_100.stripePriceId,
+  },
 } as const;
 
 export const SUBSCRIPTION_PLANS = {
   starter: {
-    monthly: { priceId: STRIPE_PRICES.starter_monthly, price: 999 }, // $9.99
-    yearly: { priceId: STRIPE_PRICES.starter_yearly, price: 9999 }, // $99.99
+    monthly: {
+      priceId: STRIPE_PRICES.starter_monthly,
+      price: toCents(PRICING_PLANS.starter.price),
+    },
   },
   pro: {
-    monthly: { priceId: STRIPE_PRICES.pro_monthly, price: 2999 }, // $29.99
-    yearly: { priceId: STRIPE_PRICES.pro_yearly, price: 29999 }, // $299.99
+    monthly: {
+      priceId: STRIPE_PRICES.pro_monthly,
+      price: toCents(PRICING_PLANS.pro.price),
+    },
   },
-  enterprise: {
-    monthly: { priceId: STRIPE_PRICES.enterprise_monthly, price: 9999 }, // $99.99
-    yearly: { priceId: STRIPE_PRICES.enterprise_yearly, price: 99999 }, // $999.99
+  hired: {
+    monthly: {
+      priceId: STRIPE_PRICES.hired_monthly,
+      price: toCents(PRICING_PLANS.hired.price),
+    },
   },
 } as const;

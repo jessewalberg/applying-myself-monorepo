@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Metadata } from "next";
 import { SiteNav } from "@/components/marketing/SiteNav";
 import { SiteFooter } from "@/components/marketing/SiteFooter";

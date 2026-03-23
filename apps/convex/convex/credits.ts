@@ -1,17 +1,19 @@
 // convex/credits.ts
 import { mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import { getCurrentUserProfile } from "./userHelpers";
-import { CREDITS, CREDIT_TRANSACTION_TYPES, PAGINATION, AI_LIMITS } from "./constants";
+import { CREDIT_TRANSACTION_TYPES, PAGINATION } from "./constants";
+import {
+  CREDIT_COSTS,
+  addCreditsToBalance,
+  calculateApiUsageStats,
+  calculateCreditStats,
+  deductCreditsFromBalance,
+  getCreditAvailability,
+  getSubscriptionLimitSnapshot,
+} from "../lib/credits";
 
-// Credit costs constants
-export const CREDIT_COSTS = {
-  COVER_LETTER_GENERATION: 3,
-  JOB_EXTRACTION: 1,
-  RESUME_ANALYSIS: 2,
-  RESUME_UPLOAD: 1,
-} as const;
+export { CREDIT_COSTS } from "../lib/credits";
 
 // Check if user has sufficient credits
 export const checkCredits = query({
@@ -24,14 +26,7 @@ export const checkCredits = query({
     }
 
     const userProfile = await getCurrentUserProfile(ctx);
-
-    const currentCredits = userProfile.credits || 0;
-    return {
-      hasCredits: currentCredits >= requiredCredits,
-      currentCredits,
-      requiredCredits,
-      shortfall: Math.max(0, requiredCredits - currentCredits),
-    };
+    return getCreditAvailability(userProfile.credits || 0, requiredCredits);
   },
 });
 
@@ -72,13 +67,11 @@ export const addCredits = mutation({
     }
 
     const userProfile = await getCurrentUserProfile(ctx);
-
-    const currentCredits = userProfile.credits || 0;
-    const newBalance = currentCredits + amount;
+    const balanceUpdate = addCreditsToBalance(userProfile.credits || 0, amount);
 
     // Update user credits
     await ctx.db.patch(userProfile._id, {
-      credits: newBalance,
+      credits: balanceUpdate.newBalance,
       updatedAt: Date.now(),
     });
 
@@ -87,7 +80,7 @@ export const addCredits = mutation({
       userProfileId: userProfile._id,
       type: CREDIT_TRANSACTION_TYPES.EARNED,
       amount,
-      balance: newBalance,
+      balance: balanceUpdate.newBalance,
       source,
       sourceId,
       description,
@@ -95,11 +88,7 @@ export const addCredits = mutation({
       createdAt: Date.now(),
     });
 
-    return {
-      previousBalance: currentCredits,
-      creditsAdded: amount,
-      newBalance,
-    };
+    return balanceUpdate;
   },
 });
 
@@ -125,17 +114,21 @@ export const deductCredits = mutation({
     }
 
     const userProfile = await getCurrentUserProfile(ctx);
-
-    const currentCredits = userProfile.credits || 0;
-    if (currentCredits < amount) {
+    const creditAvailability = getCreditAvailability(
+      userProfile.credits || 0,
+      amount
+    );
+    if (!creditAvailability.hasCredits) {
       throw new ConvexError("Insufficient credits");
     }
-
-    const newBalance = currentCredits - amount;
+    const balanceUpdate = deductCreditsFromBalance(
+      creditAvailability.currentCredits,
+      amount
+    );
 
     // Update user credits
     await ctx.db.patch(userProfile._id, {
-      credits: newBalance,
+      credits: balanceUpdate.newBalance,
       updatedAt: Date.now(),
     });
 
@@ -144,7 +137,7 @@ export const deductCredits = mutation({
       userProfileId: userProfile._id,
       type: CREDIT_TRANSACTION_TYPES.SPENT,
       amount,
-      balance: newBalance,
+      balance: balanceUpdate.newBalance,
       source,
       sourceId,
       description,
@@ -152,11 +145,7 @@ export const deductCredits = mutation({
       createdAt: Date.now(),
     });
 
-    return {
-      previousBalance: currentCredits,
-      creditsDeducted: amount,
-      newBalance,
-    };
+    return balanceUpdate;
   },
 });
 
@@ -218,47 +207,11 @@ export const getCreditStats = query({
       .query("creditTransactions")
       .filter((q) => q.eq(q.field("userProfileId"), userProfile._id))
       .collect();
-
-    // Calculate totals
-    const totalEarned = allTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.EARNED)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalSpent = allTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.SPENT)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalRefunded = allTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.REFUNDED)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Get this month's transactions
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const thisMonthTransactions = allTransactions.filter(t => 
-      t.createdAt >= startOfMonth.getTime()
+    return calculateCreditStats(
+      allTransactions,
+      userProfile.credits || 0,
+      Date.now()
     );
-
-    const thisMonthSpent = thisMonthTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.SPENT)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const thisMonthEarned = thisMonthTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.EARNED)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      currentBalance: userProfile.credits || 0,
-      totalEarned,
-      totalSpent,
-      totalRefunded,
-      thisMonthSpent,
-      thisMonthEarned,
-      lifetimeNet: totalEarned - totalSpent + totalRefunded,
-      transactionCount: allTransactions.length,
-    };
   },
 });
 
@@ -268,36 +221,16 @@ export const checkSubscriptionLimits = query({
   handler: async (ctx) => {
     const userProfile = await getCurrentUserProfile(ctx);
 
-    // Get plan limits from constants
-    const currentPlanLimit = AI_LIMITS[userProfile.plan as keyof typeof AI_LIMITS] || AI_LIMITS.none;
-
-    // Check if user has active subscription
-    const hasActiveSubscription = userProfile.subscriptionStatus === "active";
-
-    // Get this month's usage
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
     const thisMonthTransactions = await ctx.db
       .query("creditTransactions")
       .withIndex("by_user_date", (q) => q.eq("userProfileId", userProfile._id))
-      .filter((q) => q.gte(q.field("createdAt"), startOfMonth.getTime()))
+      .filter((q) => q.gte(q.field("createdAt"), 0))
       .collect();
-
-    const monthlyCreditsUsed = thisMonthTransactions
-      .filter(t => t.type === CREDIT_TRANSACTION_TYPES.SPENT)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      hasActiveSubscription,
-      currentPlan: userProfile.plan,
-      planLimit: currentPlanLimit,
-      currentCredits: userProfile.credits || 0,
-      monthlyCreditsUsed,
-      canUseCredits: hasActiveSubscription || (userProfile.credits || 0) > 0,
-      subscriptionStatus: userProfile.subscriptionStatus,
-    };
+    return getSubscriptionLimitSnapshot(
+      userProfile,
+      thisMonthTransactions,
+      Date.now()
+    );
   },
 });
 
@@ -317,77 +250,6 @@ export const getApiUsageStats = query({
       .withIndex("by_user_date", (q) => q.eq("userProfileId", userProfile._id))
       .filter((q) => q.gte(q.field("createdAt"), startDate.getTime()))
       .collect();
-
-    // Group by endpoint
-    const endpointStats = apiUsageEntries.reduce((acc, entry) => {
-      const endpoint = entry.endpoint;
-      if (!acc[endpoint]) {
-        acc[endpoint] = {
-          totalRequests: 0,
-          totalCredits: 0,
-          successfulRequests: 0,
-          failedRequests: 0,
-          averageResponseTime: 0,
-        };
-      }
-
-      acc[endpoint].totalRequests++;
-      acc[endpoint].totalCredits += entry.creditsUsed || 0;
-      
-      if (entry.success) {
-        acc[endpoint].successfulRequests++;
-      } else {
-        acc[endpoint].failedRequests++;
-      }
-
-      return acc;
-    }, {} as Record<string, any>);
-
-    // Calculate daily breakdown
-    const dailyUsage = getDailyUsageBreakdown(apiUsageEntries, days);
-
-    // Total usage
-    const totalRequests = apiUsageEntries.length;
-    const totalCredits = apiUsageEntries.reduce((sum, entry) => sum + (entry.creditsUsed || 0), 0);
-    const successRate = totalRequests > 0 ? 
-      (apiUsageEntries.filter(e => e.success).length / totalRequests) * 100 : 0;
-
-    return {
-      totalRequests,
-      totalCredits,
-      successRate,
-      endpointStats,
-      dailyUsage,
-      periodDays: days,
-    };
+    return calculateApiUsageStats(apiUsageEntries, days, Date.now());
   },
 });
-
-// Helper function to get daily usage breakdown
-function getDailyUsageBreakdown(entries: any[], days: number) {
-  const dailyData: Record<string, { requests: number; credits: number }> = {};
-  
-  // Initialize all days in range
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dateKey = date.toISOString().split('T')[0];
-    dailyData[dateKey] = { requests: 0, credits: 0 };
-  }
-
-  // Aggregate data by day
-  entries.forEach(entry => {
-    const date = new Date(entry.createdAt).toISOString().split('T')[0];
-    if (dailyData[date]) {
-      dailyData[date].requests++;
-      dailyData[date].credits += entry.creditsUsed || 0;
-    }
-  });
-
-  return Object.entries(dailyData)
-    .map(([date, data]) => ({ date, ...data }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-}

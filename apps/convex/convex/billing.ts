@@ -1,121 +1,24 @@
 // convex/billing.ts
 import { mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import { getCurrentUserProfile } from "./userHelpers";
 import { SUBSCRIPTION_STATUS, PAYMENT_STATUS, PAGINATION } from "./constants";
+import {
+  CREDIT_PACKAGES,
+  PRICING_PLANS,
+  getCreditPackage,
+  getPricingCatalog,
+  getReactivatedPlan,
+  normalizePlan,
+} from "../lib/billing";
 
-function normalizePlan(plan: unknown): "none" | "starter" | "pro" | "hired" {
-  if (plan === "none" || plan === "starter" || plan === "pro" || plan === "hired") return plan;
-  return "none";
-}
-
-// Pricing plans configuration
-export const PRICING_PLANS = {
-  none: {
-    id: 'none',
-    name: 'Free',
-    description: 'Get started with basic features',
-    price: 0,
-    credits: 3,
-    stripePriceId: '',
-    features: [
-      '3 free credits',
-      'Basic cover letter generation',
-      'Job extraction from web pages',
-      'Resume upload and processing'
-    ]
-  },
-  starter: {
-    id: 'starter',
-    name: 'Starter',
-    description: 'Perfect for job seekers',
-    price: 9.99,
-    credits: 50,
-    stripePriceId: 'price_starter_monthly',
-    features: [
-      '50 credits per month',
-      'Advanced AI cover letters',
-      'Multiple resume management',
-      'Job extraction history',
-      'Email support'
-    ]
-  },
-  pro: {
-    id: 'pro',
-    name: 'Professional',
-    description: 'For active job hunters',
-    price: 19.99,
-    credits: 150,
-    stripePriceId: 'price_pro_monthly',
-    features: [
-      '150 credits per month',
-      'Premium AI models',
-      'Unlimited resume storage',
-      'Advanced customization options',
-      'Priority support',
-      'Usage analytics'
-    ],
-    popular: true
-  },
-  hired: {
-    id: 'hired',
-    name: 'Hired',
-    description: 'For teams and recruiters',
-    price: 49.99,
-    credits: 500,
-    stripePriceId: 'price_enterprise_monthly',
-    features: [
-      '500 credits per month',
-      'Team collaboration',
-      'Bulk operations',
-      'API access',
-      'Custom integrations',
-      'Dedicated support',
-      'Advanced analytics'
-    ]
-  }
-} as const;
-
-export const CREDIT_PACKAGES = {
-  credits_10: {
-    id: 'credits_10',
-    name: '10 Credits',
-    credits: 10,
-    price: 2.99,
-    stripePriceId: 'price_credits_10'
-  },
-  credits_25: {
-    id: 'credits_25',
-    name: '25 Credits',
-    credits: 25,
-    price: 6.99,
-    stripePriceId: 'price_credits_25'
-  },
-  credits_50: {
-    id: 'credits_50',
-    name: '50 Credits',
-    credits: 50,
-    price: 12.99,
-    stripePriceId: 'price_credits_50'
-  },
-  credits_100: {
-    id: 'credits_100',
-    name: '100 Credits',
-    credits: 100,
-    price: 24.99,
-    stripePriceId: 'price_credits_100'
-  }
-} as const;
+export { CREDIT_PACKAGES, PRICING_PLANS } from "../lib/billing";
 
 // Get pricing plans
 export const getPricingPlans = query({
   args: {},
   handler: async () => {
-    return {
-      plans: Object.values(PRICING_PLANS),
-      creditPackages: Object.values(CREDIT_PACKAGES)
-    };
+    return getPricingCatalog();
   },
 });
 
@@ -235,7 +138,7 @@ export const createCreditsCheckout = mutation({
     }
 
     // Validate credit package
-    const creditPackage = CREDIT_PACKAGES[creditPackageId as keyof typeof CREDIT_PACKAGES];
+    const creditPackage = getCreditPackage(creditPackageId);
     if (!creditPackage) {
       throw new ConvexError("Invalid credit package");
     }
@@ -545,7 +448,7 @@ export const reactivateSubscription = mutation({
     });
 
     await ctx.db.patch(userProfile._id, {
-      plan: normalizePlan(userProfile.plan) === "none" ? "starter" : normalizePlan(userProfile.plan),
+      plan: getReactivatedPlan(userProfile.plan),
       subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE,
       updatedAt: Date.now(),
     });

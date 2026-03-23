@@ -4,9 +4,7 @@ import { SiteNav } from "@/components/marketing/SiteNav";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import {
     Sparkles,
-    Upload,
     FileText,
-    Download,
     Briefcase,
     Settings,
     Mail,
